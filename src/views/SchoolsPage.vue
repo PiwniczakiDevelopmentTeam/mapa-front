@@ -2,10 +2,9 @@
   <div class="container">
     <div class="row">
       <div class="col-12 text-white">
-
         <h1 class="mt-4 mb-4">Placówki</h1>
 
-        <!-- Komponent filtrów -->
+        <!-- Filtry (opcjonalnie) -->
         <SchoolPageFilters @applyFilters="onApplyFilters" />
 
         <div class="row">
@@ -23,7 +22,7 @@
           </div>
         </div>
 
-        <!-- Lista szkół z paginacją -->
+        <!-- Lista z paginacją -->
         <SchoolPageList
           :schools="schools"
           :currentPage="currentPage"
@@ -38,8 +37,8 @@
 
 <script>
 import axios from 'axios';
-// Ustaw, jeśli masz osobną domenę dla API
-axios.defaults.baseURL = 'https://api.dev.mapa.tomekb530.me';
+axios.defaults.baseURL = 'https://api.dev.mapa.tomekb530.me'; 
+// lub inna domena, jeśli Twoje API stoi gdzieś indziej
 
 import SchoolPageFilters from '@/components/SchoolPageComponents/SchoolPageFilters.vue';
 import SchoolPageList from '@/components/SchoolPageComponents/SchoolPageList.vue';
@@ -52,50 +51,58 @@ export default {
   },
   data() {
     return {
-      schools: [],         // pobrana lista szkół
-      currentPage: 1,      // numer aktualnej strony
-      itemsPerPage: 20,    // ile wyników na stronę
-      totalItems: 0,       // łączna liczba szkół
-      filters: {},         // obiekt z filtrami (z SchoolPageFilters)
+      schools: [],        // pobrana lista z danej strony
+      totalItems: 0,      // łączna liczba placówek (do paginacji)
+      currentPage: 1,     // numer aktualnej strony
+      itemsPerPage: 20,   // ile wyników na stronę
+      filters: {},        // filtry (jeśli potrzebne)
     };
   },
-  created() {
-    // Na starcie pobieramy listę szkół
-    this.fetchSchools();
+  async created() {
+    // Po załadowaniu komponentu pobierz liczbę placówek i pierwszą stronę.
+    // Możesz to zrobić w jednej metodzie, tutaj robię prosto w created():
+    await this.fetchSchoolsCount();  // (A) pobierz total
+    await this.fetchSchools();       // (B) pobierz pierwszą stronę
   },
   methods: {
-    async fetchSchools() {
+    // (A) Pobieranie łącznej liczby placówek
+    async fetchSchoolsCount() {
       try {
-        // Parametry do API
-        const params = {
-          size: this.itemsPerPage,
-          pageNumber: this.currentPage,
-          // + ewentualne filtry
-        };
-
-        // GET /api/Schools/GetSchoolPage
-        const response = await axios.get('/api/Schools/GetSchoolPage', { params });
-        
-        // Zakładam, że API zwraca tablicę szkół
-        this.schools = response.data || [];
-
-        // Ewentualnie zapisz total, jeśli API nie zwraca osobno:
-        this.totalItems = this.schools.length;
-
+        const response = await axios.get('/api/Schools/GetSchoolsCount');
+        this.totalItems = response.data; // zakładamy, że to jest integer
       } catch (error) {
-        console.error('Błąd podczas pobierania danych:', error);
+        console.error('Błąd podczas pobierania łącznej liczby placówek:', error);
       }
     },
 
+    // (B) Pobieranie listy (strony) placówek
+    async fetchSchools() {
+      try {
+        const params = {
+          size: this.itemsPerPage,
+          pageNumber: this.currentPage,
+          // ewentualne filtry z this.filters
+        };
+        const response = await axios.get('/api/Schools/GetSchoolPage', { params });
+        this.schools = response.data || [];
+      } catch (error) {
+        console.error('Błąd podczas pobierania listy placówek:', error);
+      }
+    },
+
+    // Wywoływane, gdy w paginacji klikniemy na inną stronę
     onPageChanged(newPage) {
       this.currentPage = newPage;
       this.fetchSchools();
     },
 
+    // Gdy użytkownik kliknie "Zastosuj filtry"
     onApplyFilters(newFilters) {
-      // Odbieramy filtry i odświeżamy
       this.filters = newFilters;
       this.currentPage = 1;
+      // Możesz zaktualizować total, jeśli filtry zmieniają liczbę wyników
+      // czekaj: 
+      // await this.fetchSchoolsCount();
       this.fetchSchools();
     },
   },
