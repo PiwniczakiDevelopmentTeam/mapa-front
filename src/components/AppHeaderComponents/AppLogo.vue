@@ -1,6 +1,6 @@
 <template>
     <div class="app-logo">
-      <img src="https://via.placeholder.com/160x80" alt="Logo" class="img-fluid ms-5" />
+      <img src="@/assets/logo.jpeg" alt="Logo" class="img-fluid ms-5" />
     </div>
   </template>
   

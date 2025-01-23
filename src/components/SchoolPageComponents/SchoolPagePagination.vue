@@ -1,6 +1,5 @@
 <template>
   <div class="pagination-container">
-    <!-- Przycisk Wstecz -->
     <button
       class="pagination-btn"
       :disabled="currentPage === 1"
@@ -9,7 +8,6 @@
       &lt;
     </button>
 
-    <!-- Generowanie widocznych numerów stron (z elipsami) -->
     <span
       v-for="(page, idx) in visiblePages"
       :key="idx"
@@ -19,7 +17,6 @@
       {{ page }}
     </span>
 
-    <!-- Przycisk Dalej -->
     <button
       class="pagination-btn"
       :disabled="currentPage === totalPages"
@@ -59,31 +56,17 @@ export default {
       const current = this.currentPage;
       const pages = [];
 
-      // Jeśli mamy 7 lub mniej stron, pokaż wszystkie:
       if (total <= 7) {
         for (let i = 1; i <= total; i++) {
           pages.push(i);
         }
       } else {
-        // Jeśli jest więcej stron, to wyświetlamy:
-        // 1) Zawsze stronę nr 1
-        // 2) Blok stron wokół currentPage
-        // 3) Zawsze ostatnią stronę (total)
-        // Pomiędzy stosujemy "..." (elipsy)
-
-        // Zawsze 1
         pages.push(1);
 
-        // Determinujemy, czy wstawić "..." za jedynką
-        // (tzn. jeśli currentPage jest powyżej 4)
         if (current > 4) {
           pages.push("...");
         }
 
-        // Blok stron wokół currentPage
-        // start: current - 1
-        // end: current + 1
-        // z uwzględnieniem granic
         const start = Math.max(2, current - 1);
         const end = Math.min(total - 1, current + 1);
 
@@ -91,12 +74,10 @@ export default {
           pages.push(i);
         }
 
-        // Determinujemy, czy wstawić "..." przed ostatnią stroną
         if (current < total - 3) {
           pages.push("...");
         }
 
-        // Zawsze total (ostatnia strona)
         pages.push(total);
       }
 
@@ -106,15 +87,12 @@ export default {
 
   methods: {
     goToPage(page) {
-      // Jeśli klikniemy w "...", nic nie róbmy
       if (page === "...") {
         return;
       }
-      // Upewnij się, że nie wyjdziemy poza 1..total
       if (page < 1) page = 1;
       if (page > this.totalPages) page = this.totalPages;
 
-      // Emitujemy do rodzica nowy numer strony
       this.$emit("page-changed", page);
     },
   },

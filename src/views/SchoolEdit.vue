@@ -2,10 +2,10 @@
   <div class="container mt-4 text-white">
     <h2>Edycja placówki</h2>
     
-    <!-- Jeśli mamy obiekt school, renderujemy formularz -->
     <SchoolEditForm
-      v-if="school"
-      :school="school"
+      v-if="schoolBefore && schoolAfter"
+      :schoolBefore="schoolBefore"
+      :schoolAfter="schoolAfter"
       @save="onSaveSchool"
       @cancel="onCancelEdit"
     />
@@ -17,8 +17,9 @@
 </template>
 
 <script>
-import { onMounted, ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import axios from 'axios';
 
 import SchoolEditForm from '@/components/SchoolEditComponents/SchoolEditForm.vue';
 
@@ -28,62 +29,48 @@ export default {
   setup() {
     const route = useRoute();
     const router = useRouter();
-    const school = ref(null);
+    const schoolBefore = ref(null);
+    const schoolAfter = ref(null);
 
-    onMounted(() => {
+    onMounted(async () => {
       const schoolId = route.params.id;
 
-      // 1) Spróbujmy odczytać obiekt z query
-      const jsonData = route.query.schoolData;
-      if (jsonData) {
+      try {
+        const response = await axios.get('/api/Schools/GetSingleSchoolWithChanges', {
+          params: { id: schoolId }
+        });
+
+        const before = response.data.schoolBeforeChanges;
+        const after = response.data.schoolsAfterChanges;
+
+        if (typeof after.podmiotProwadzacy === 'string') {
         try {
-          school.value = JSON.parse(jsonData);
+          after.podmiotProwadzacy = JSON.parse(after.podmiotProwadzacy);
         } catch (err) {
-          console.error('Błąd parsowania JSON (schoolData):', err);
+          console.warn('Nie udało się zdekodować schoolAfter.podmiotProwadzacy:', err);
+          after.podmiotProwadzacy = [];
         }
       }
 
-      // 2) Jeśli wciąż nie mamy `school.value`, używamy dotychczasowego "mocka"
-      if (!school.value) {
-        try {
-          // Twój stary mock
-          school.value = {
-            id: schoolId,
-            numerRspo: 123,
-            nazwa: 'LICEUM OGÓLNOKSZTAŁCĄCE DLA DOROSŁYCH PROFIT',
-            typ: 'Średnia',
-            wojewodztwo: 'Lubelskie',
-            powiat: 'parczewski',
-            miejscowosc: 'Parczew',
-            ulica: 'Spółdzielcza',
-            numerBudynku: '7',
-            email: 'lo.profit@op.pl',
-            telefon: '555-123-456',
-            dyrektorImie: 'Jan',
-            dyrektorNazwisko: 'Kowalski',
-          };
-        } catch (err) {
-          console.error('Błąd pobierania placówki:', err);
-        }
+      schoolBefore.value = before;
+      schoolAfter.value  = after;
+
+      } catch (err) {
+        console.error('Błąd pobierania placówki (GetSingleSchoolWithChanges):', err);
       }
     });
-  
-    async function onSaveSchool() {
-      try {
-        // Wywołaj PUT, jeżeli chcesz
-        // np. axios.put(`/api/Schools/${school.value.id}`, school.value);
-        router.push('/');
-      } catch (err) {
-        console.error('Błąd zapisu placówki:', err);
-      }
+
+    async function onSaveSchool(updatedObj) {
+      console.log(updatedObj);
     }
-  
+
     function onCancelEdit() {
       router.push('/');
     }
-  
+
     return {
-      school,
+      schoolBefore,
+      schoolAfter,
       onSaveSchool,
       onCancelEdit,
     };

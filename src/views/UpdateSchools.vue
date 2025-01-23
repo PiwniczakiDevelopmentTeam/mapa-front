@@ -2,7 +2,7 @@
   <div class="container">
     <div class="row">
       <div class="col-12 text-white">
-        <h1 class="mt-4 mb-4">Placówki</h1>
+        <h1 class="mt-4 mb-4">Placówki do zaktualizowania</h1>
 
         <SchoolPageFilters @applyFilters="onApplyFilters" />
 
@@ -33,12 +33,13 @@
           </div>
         </div>
 
+        <!-- SchoolPageList bez paginacji -->
         <SchoolPageList
-          :schools="schools"
-          :currentPage="currentPage"
-          :itemsPerPage="itemsPerPage"
-          :totalItems="totalItems"
-          @page-changed="onPageChanged"
+          :schools="filteredSchools"
+          :currentPage="1"
+          :itemsPerPage="20"
+          :totalItems="filteredSchools.length"
+          :pagination="false"
         />
       </div>
     </div>
@@ -53,55 +54,55 @@ import SchoolPageFilters from '@/components/SchoolPageComponents/SchoolPageFilte
 import SchoolPageList from '@/components/SchoolPageComponents/SchoolPageList.vue';
 
 export default {
-  name: 'SchoolsPage',
+  name: 'UpdateSchools',
   components: {
     SchoolPageFilters,
-    SchoolPageList,
+    SchoolPageList
   },
   data() {
     return {
-      schools: [],
-      totalItems: 0,
+      filteredSchools: [],
       currentPage: 1,
       itemsPerPage: 20,
-      filters: {},
+      filters: {}
     };
   },
   async created() {
-    await this.fetchSchoolsCount();
-    await this.fetchSchools();
+    await this.fetchData();
   },
   methods: {
-    async fetchSchoolsCount() {
+    async fetchData() {
       try {
-        const response = await axios.get('/api/Schools/GetSchoolsCount');
-        this.totalItems = response.data;
+        const response = await axios.get('/api/Schools/GetChanges', {
+          params: {
+            page: 1,
+            size: 20
+          }
+        });
+
+        const all = response.data.changedSchools || [];
+
+        const updatable = all.filter(item =>
+          item.schoolBeforeChanges !== null &&
+          item.schoolsAfterChanges !== null
+        );
+        
+        this.filteredSchools = updatable.map(item => {
+          return {
+            ...item.schoolsAfterChanges,
+            id: item.schoolBeforeChanges.id
+          };
+        });
+
       } catch (error) {
-        console.error('Błąd podczas pobierania łącznej liczby placówek:', error);
+        console.error('Błąd pobierania changes - update:', error);
       }
-    },
-    async fetchSchools() {
-      try {
-        const params = {
-          size: this.itemsPerPage,
-          pageNumber: this.currentPage,
-        };
-        const response = await axios.get('/api/Schools/GetSchoolPage', { params });
-        this.schools = response.data || [];
-      } catch (error) {
-        console.error('Błąd podczas pobierania listy placówek:', error);
-      }
-    },
-    onPageChanged(newPage) {
-      this.currentPage = newPage;
-      this.fetchSchools();
     },
     onApplyFilters(newFilters) {
       this.filters = newFilters;
-      this.currentPage = 1;
-      this.fetchSchools();
-    },
-  },
+      this.fetchData();
+    }
+  }
 };
 </script>
 
