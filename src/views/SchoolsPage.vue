@@ -87,7 +87,12 @@ export default {
           pageNumber: this.currentPage,
         };
         const response = await axios.get('/api/Schools/GetSchoolPage', { params });
-        this.schools = response.data || [];
+    
+        // Każdy rekord z serwera opakowujemy i ustawiamy isInLocalDb = true
+        this.schools = (response.data || []).map(school => ({
+          ...school,
+          isInLocalDb: true
+    }));
       } catch (error) {
         console.error('Błąd podczas pobierania listy placówek:', error);
       }

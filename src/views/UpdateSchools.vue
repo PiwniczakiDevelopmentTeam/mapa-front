@@ -1,12 +1,12 @@
 <template>
-  <div class="container">
-    <div class="row">
-      <div class="col-12 text-white">
-        <h1 class="mt-4 mb-4">Placówki do zaktualizowania</h1>
+  <div class="container mt-4 text-white">
+    <h1>Placówki do zaktualizowania</h1>
 
-        <SchoolPageFilters @applyFilters="onApplyFilters" />
-
-        <div class="row mb-3">
+    <!-- Komponent filtrów (opcjonalne) -->
+    <SchoolPageFilters @applyFilters="onApplyFilters" />
+    
+    <div class="row mb-3">
+          <!-- Pokaż nowe placówki -->
           <div
             class="col-4 text-white d-flex align-items-center"
             style="cursor: pointer;"
@@ -15,6 +15,8 @@
             <i class="bi bi-plus-circle me-2 icon-large"></i>
             Pokaż nowe placówki
           </div>
+
+          <!-- Pokaż placówki do zaktualizowania -->
           <div
             class="col-4 text-white d-flex align-items-center"
             style="cursor: pointer;"
@@ -23,6 +25,8 @@
             <i class="bi bi-pencil-square me-2 icon-large"></i>
             Pokaż placówki do zaktualizowania
           </div>
+
+          <!-- Pokaż placówki do usunięcia -->
           <div
             class="col-4 text-white d-flex align-items-center"
             style="cursor: pointer;"
@@ -33,16 +37,15 @@
           </div>
         </div>
 
-        <!-- SchoolPageList bez paginacji -->
-        <SchoolPageList
-          :schools="filteredSchools"
-          :currentPage="1"
-          :itemsPerPage="20"
-          :totalItems="filteredSchools.length"
-          :pagination="false"
-        />
-      </div>
-    </div>
+    <!-- Przykładowy komponent listy z paginacją -->
+    <SchoolPageList
+      :schools="filteredSchools"
+      :currentPage="currentPage"
+      :itemsPerPage="pageSize"
+      :totalItems="totalItems"
+      :pagination="true"
+      @pageChanged="onPageChanged"
+    />
   </div>
 </template>
 
@@ -61,53 +64,78 @@ export default {
   },
   data() {
     return {
-      filteredSchools: [],
-      currentPage: 1,
-      itemsPerPage: 20,
-      filters: {}
+      filteredSchools: [],    // Dane wyświetlane w tabeli/listcie
+      currentPage: 1,         // Numer aktualnej strony
+      pageSize: 20,           // Liczba elementów na stronę
+      totalItems: 0,          // Łączna liczba elementów (z `schoolsCount`)
+      filters: {}             // Opcjonalnie obiekt filtrów
     };
   },
   async created() {
-    await this.fetchData();
+    await this.fetchData(this.currentPage);
   },
   methods: {
-    async fetchData() {
+    /**
+     * Pobiera jedną, konkretną stronę z serwera, bazując na `currentPage` i `pageSize`.
+     */
+    async fetchData(page = 1) {
       try {
+        // Wywołanie endpointu
         const response = await axios.get('/api/Schools/GetChanges', {
           params: {
-            page: 1,
-            size: 20
+            page: page,
+            size: this.pageSize,
+            ...this.filters
           }
         });
 
-        const all = response.data.changedSchools || [];
+        // Oczekujemy struktury:
+        // {
+        //   changedSchools: [...],
+        //   schoolsCount: number,
+        //   corruptedRSPO: [...]
+        // }
+        const { changedSchools = [], schoolsCount = 0 } = response.data;
 
-        const updatable = all.filter(item =>
-          item.schoolBeforeChanges !== null &&
-          item.schoolsAfterChanges !== null
+        // Ustawiamy totalItems, co pozwala nam zbudować paginację
+        this.totalItems = schoolsCount;
+
+        // Filtrujemy i mapujemy to, co ma `schoolBeforeChanges` i `schoolsAfterChanges`
+        const updatable = changedSchools.filter(
+          (item) => item.schoolBeforeChanges && item.schoolsAfterChanges
         );
-        
-        this.filteredSchools = updatable.map(item => {
-          return {
-            ...item.schoolsAfterChanges,
-            id: item.schoolBeforeChanges.id
-          };
-        });
 
+        this.filteredSchools = updatable.map((item) => ({
+          ...item.schoolsAfterChanges,
+          id: item.schoolBeforeChanges.id,
+          isInLocalDb: true
+        }));
       } catch (error) {
-        console.error('Błąd pobierania changes - update:', error);
+        console.error('Błąd pobierania zmian (GetChanges):', error);
       }
     },
+
+    /**
+     * Wywoływana, gdy user przełączy się na inną stronę w paginacji.
+     */
+    onPageChanged(newPage) {
+      this.currentPage = newPage;
+      this.fetchData(newPage);
+    },
+
+    /**
+     * Wywoływana, gdy user zmieni filtry w SchoolPageFilters.
+     * Pobieramy od nowa stronę 1, bo filtry się zmieniły.
+     */
     onApplyFilters(newFilters) {
       this.filters = newFilters;
-      this.fetchData();
+      this.currentPage = 1;
+      this.fetchData(1);
     }
   }
 };
 </script>
 
 <style scoped>
-.icon-large {
-  font-size: 1.2rem;
-}
+
 </style>

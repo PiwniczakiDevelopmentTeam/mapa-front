@@ -44,16 +44,16 @@ export default {
         const after = response.data.schoolsAfterChanges;
 
         if (typeof after.podmiotProwadzacy === 'string') {
-        try {
-          after.podmiotProwadzacy = JSON.parse(after.podmiotProwadzacy);
-        } catch (err) {
-          console.warn('Nie udało się zdekodować schoolAfter.podmiotProwadzacy:', err);
-          after.podmiotProwadzacy = [];
+          try {
+            after.podmiotProwadzacy = JSON.parse(after.podmiotProwadzacy);
+          } catch (err) {
+            console.warn('Nie udało się zdekodować schoolAfter.podmiotProwadzacy:', err);
+            after.podmiotProwadzacy = [];
+          }
         }
-      }
 
-      schoolBefore.value = before;
-      schoolAfter.value  = after;
+        schoolBefore.value = before;
+        schoolAfter.value  = after;
 
       } catch (err) {
         console.error('Błąd pobierania placówki (GetSingleSchoolWithChanges):', err);
@@ -61,7 +61,19 @@ export default {
     });
 
     async function onSaveSchool(updatedObj) {
-      console.log(updatedObj);
+      try {
+
+        const response = await axios.put(
+          '/api/Schools/UpdateSingleSchool',
+          updatedObj
+        );
+        
+        console.log('Aktualizacja powiodła się. Odpowiedź serwera:', response.data);
+        
+        router.push('/');
+      } catch (error) {
+        console.error('Błąd aktualizacji placówki:', error);
+      }
     }
 
     function onCancelEdit() {
