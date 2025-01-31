@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import MapPage from '../views/MapPage.vue';
 import SchoolsPage from '../views/SchoolsPage.vue';
 import SchoolEditPage from '../views/SchoolEdit.vue';
 import SchoolAdd from '../views/SchoolAdd.vue';
@@ -9,6 +10,10 @@ import UpdateSchools from '@/views/UpdateSchools.vue';
 const routes = [
   {
     path: '/',
+    component: MapPage
+  },
+  {
+    path: '/schools',
     component: SchoolsPage
   },
   {
