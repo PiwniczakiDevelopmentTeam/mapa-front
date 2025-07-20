@@ -83,13 +83,17 @@ export default {
     },
     async fetchSchools() {
       try {
-        const payload = {
+            const queryParams = new URLSearchParams({
           size: this.itemsPerPage,
           pageNumber: this.currentPage,
-          filterSets: this.filterSets || [] // tablica filtrów, opcjonalna
-        };
+        }).toString();
 
-        const response = await axios.post('/api/Schools/GetSchoolPage', payload);
+        const url = `/api/Schools/GetSchoolPage?${queryParams}`;
+            const payload = {
+              filterSets: this.filterSets || [] // tablica filtrów, opcjonalna
+            };
+
+        const response = await axios.post(url, payload);
 
         this.schools = (response.data || []).map((school) => ({
           ...school,
