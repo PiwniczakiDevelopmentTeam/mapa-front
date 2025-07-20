@@ -104,6 +104,10 @@ export default {
     console.error('Błąd podczas pobierania listy placówek:', error);
   }
 },
+onPageChanged(newPage) {
+    this.currentPage = newPage;
+    this.fetchSchools();
+  },
   },
 };
 </script>
