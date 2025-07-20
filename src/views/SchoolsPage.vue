@@ -47,10 +47,11 @@
 
 <script>
 import axios from 'axios';
-axios.defaults.baseURL = 'https://api.dev.mapa.tomekb530.me';
-
 import SchoolPageFilters from '@/components/SchoolPageComponents/SchoolPageFilters.vue';
 import SchoolPageList from '@/components/SchoolPageComponents/SchoolPageList.vue';
+import { SchoolDTO } from '@/components/models/schoolDTO';
+
+axios.defaults.baseURL = 'https://api.dev.mapa.tomekb530.me';
 
 export default {
   name: 'SchoolsPage',
@@ -82,17 +83,18 @@ export default {
     },
     async fetchSchools() {
       try {
-        const params = {
+        const payload = {
           size: this.itemsPerPage,
           pageNumber: this.currentPage,
+          filterSets: this.filterSets || [] // tablica filtrów, opcjonalna
         };
-        const response = await axios.post('/api/Schools/GetSchoolPage', { params });
-    
-        // Każdy rekord z serwera opakowujemy i ustawiamy isInLocalDb = true
-        this.schools = (response.data || []).map(school => ({
+
+        const response = await axios.post('/api/Schools/GetSchoolPage', payload);
+
+        this.schools = (response.data || []).map((school) => ({
           ...school,
-          isInLocalDb: true
-    }));
+          isInLocalDb: true,
+        }));
       } catch (error) {
         console.error('Błąd podczas pobierania listy placówek:', error);
       }
