@@ -86,7 +86,7 @@ export default {
           size: this.itemsPerPage,
           pageNumber: this.currentPage,
         };
-        const response = await axios.get('/api/Schools/GetSchoolPage', { params });
+        const response = await axios.post('/api/Schools/GetSchoolPage', { params });
     
         // Każdy rekord z serwera opakowujemy i ustawiamy isInLocalDb = true
         this.schools = (response.data || []).map(school => ({
