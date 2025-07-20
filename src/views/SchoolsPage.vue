@@ -49,7 +49,6 @@
 import axios from 'axios';
 import SchoolPageFilters from '@/components/SchoolPageComponents/SchoolPageFilters.vue';
 import SchoolPageList from '@/components/SchoolPageComponents/SchoolPageList.vue';
-import { SchoolDTO } from '@/components/models/schoolDTO';
 
 axios.defaults.baseURL = 'https://api.dev.mapa.tomekb530.me';
 
