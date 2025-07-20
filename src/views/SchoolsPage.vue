@@ -81,36 +81,29 @@ export default {
       }
     },
     async fetchSchools() {
-      try {
-            const queryParams = new URLSearchParams({
-          size: this.itemsPerPage,
-          pageNumber: this.currentPage,
-        }).toString();
+  try {
+    const queryParams = new URLSearchParams({
+      size: this.itemsPerPage,
+      pageNumber: this.currentPage,
+    }).toString();
 
-        const url = `/api/Schools/GetSchoolPage?${queryParams}`;
-            const payload = {
-              filterSets: this.filterSets || [] // tablica filtrów, opcjonalna
-            };
+    const url = `/api/Schools/GetSchoolPage?${queryParams}`;
 
-        const response = await axios.post(url, payload);
+    const hasFilters = Array.isArray(this.filterSets) && this.filterSets.length > 0;
+    const body = hasFilters ? this.filterSets : undefined;
 
-        this.schools = (response.data || []).map((school) => ({
-          ...school,
-          isInLocalDb: true,
-        }));
-      } catch (error) {
-        console.error('Błąd podczas pobierania listy placówek:', error);
-      }
-    },
-    onPageChanged(newPage) {
-      this.currentPage = newPage;
-      this.fetchSchools();
-    },
-    onApplyFilters(newFilters) {
-      this.filters = newFilters;
-      this.currentPage = 1;
-      this.fetchSchools();
-    },
+    const response = await axios.post(url, body);
+
+    const rawList = response.data?.$values || [];
+
+    this.schools = rawList.map((school) => ({
+      ...school,
+      isInLocalDb: true,
+    }));
+  } catch (error) {
+    console.error('Błąd podczas pobierania listy placówek:', error);
+  }
+},
   },
 };
 </script>
