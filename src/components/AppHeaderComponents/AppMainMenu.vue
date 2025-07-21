@@ -25,8 +25,45 @@
             </li>
           </ul>
           <ul class="navbar-nav ms-auto">
-            <li class="nav-item">
-              <a class="nav-link" href="#">Wyloguj</a>
+            <li class="nav-item dropdown" v-if="userStore.user">
+              <a
+                class="nav-link dropdown-toggle"
+                href="#"
+                id="userDropdown"
+                role="button"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+              >
+                <i class="bi bi-person-circle me-1"></i>
+                {{ userStore.user.name || userStore.user.email || 'Użytkownik' }}
+              </a>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userDropdown">
+                <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i>Profil</a></li>
+                <li><a class="dropdown-item" href="#"><i class="bi bi-gear me-2"></i>Ustawienia</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <a 
+                    class="dropdown-item" 
+                    href="#" 
+                    @click.prevent="handleLogout"
+                    :disabled="userStore.isLoading"
+                  >
+                    <i class="bi bi-box-arrow-right me-2"></i>
+                    {{ userStore.isLoading ? 'Wylogowywanie...' : 'Wyloguj' }}
+                  </a>
+                </li>
+              </ul>
+            </li>
+            <li class="nav-item" v-else>
+              <a 
+                class="nav-link" 
+                href="#" 
+                @click.prevent="handleLogout"
+                :disabled="userStore.isLoading"
+              >
+                <i class="bi bi-box-arrow-right me-1"></i>
+                {{ userStore.isLoading ? 'Wylogowywanie...' : 'Wyloguj' }}
+              </a>
             </li>
           </ul>
         </div>
@@ -35,7 +72,38 @@
   </template>
   
   <script>
+  import { useUserStore } from '@/store/userStore';
+  import { useRouter } from 'vue-router';
+
   export default {
     name: "AppMainMenu",
+    setup() {
+      const userStore = useUserStore();
+      const router = useRouter();
+
+      const handleLogout = async () => {
+        const result = await userStore.logout();
+        if (result.success) {
+          router.push('/login');
+        }
+      };
+
+      return {
+        userStore,
+        handleLogout,
+      };
+    },
   };
   </script>
+
+  <style scoped>
+  .dropdown-item:disabled {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  
+  .nav-link:disabled {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  </style>

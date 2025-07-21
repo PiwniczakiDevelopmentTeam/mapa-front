@@ -29,8 +29,7 @@
 </template>
 
 <script>
-import axios from 'axios'
-axios.defaults.baseURL = 'https://api.dev.mapa.tomekb530.me'
+import api from '@/services/api'
 import SchoolPageList from '@/components/SchoolPageComponents/SchoolPageList.vue'
 
 export default {
@@ -50,7 +49,7 @@ export default {
   methods: {
     async fetchData () {
       try {
-        const { data } = await axios.get('/api/Schools/GetChanges', {
+        const { data } = await api.get('/api/Schools/GetChanges', {
           params: { size: this.itemsPerPage, page: this.currentPage }
         })
         const rawDelete =

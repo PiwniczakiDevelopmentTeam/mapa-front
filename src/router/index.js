@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import { useUserStore } from '@/store/userStore';
 import MapPage from '../views/MapPage.vue';
 import SchoolsPage from '../views/SchoolsPage.vue';
 import SchoolEditPage from '../views/SchoolEdit.vue';
@@ -6,47 +7,83 @@ import SchoolAdd from '../views/SchoolAdd.vue';
 import DeleteSchools from '../views/DeleteSchools.vue';
 import NewSchools from '@/views/NewSchools.vue';
 import UpdateSchools from '@/views/UpdateSchools.vue';
+import LoginPage from '@/views/LoginPage.vue';
 
 const routes = [
   {
+    path: '/login',
+    name: 'Login',
+    component: LoginPage,
+    meta: { 
+      requiresAuth: false,
+      hideNavigation: true 
+    }
+  },
+  {
     path: '/',
-    component: MapPage
+    component: MapPage,
+    meta: { requiresAuth: true }
   },
   {
     path: '/schools',
-    component: SchoolsPage
+    component: SchoolsPage,
+    meta: { requiresAuth: true }
   },
   {
     path: '/school/:id/edit',
     name: 'SchoolEdit',
-    component: SchoolEditPage
+    component: SchoolEditPage,
+    meta: { requiresAuth: true }
   },
   {
     path: '/schools/new',
     name: 'NewSchools',
-    component: NewSchools
+    component: NewSchools,
+    meta: { requiresAuth: true }
   },
   {
     path: '/schools/update',
     name: 'UpdateSchools',
-    component: UpdateSchools
+    component: UpdateSchools,
+    meta: { requiresAuth: true }
   },
   {
     path: '/schools/add',
     name: 'SchoolAdd',
-    component: SchoolAdd
+    component: SchoolAdd,
+    meta: { requiresAuth: true }
   },
   {
     path: '/schools/delete',
     name: 'SchoolDelete',
-    component: DeleteSchools
+    component: DeleteSchools,
+    meta: { requiresAuth: true }
   }
-  
 ];
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
+});
+
+// Router guard dla autoryzacji
+router.beforeEach((to, from, next) => {
+  const userStore = useUserStore();
+  const requiresAuth = to.meta.requiresAuth !== false;
+  
+  if (requiresAuth && !userStore.isAuthenticated) {
+    // Przekieruj na stronę logowania z informacją o tym gdzie użytkownik chciał iść
+    next({
+      path: '/login',
+      query: { redirect: to.fullPath }
+    });
+  } else if (to.path === '/login' && userStore.isAuthenticated) {
+    // Jeśli użytkownik jest już zalogowany i próbuje wejść na stronę logowania,
+    // przekieruj go na stronę główną
+    next('/');
+  } else {
+    next();
+  }
 });
 
 export default router;

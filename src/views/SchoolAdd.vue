@@ -19,7 +19,7 @@
   <script>
   import { ref, onMounted } from "vue";
   import { useRoute, useRouter } from "vue-router";
-  import axios from "axios";
+  import api from "@/services/api";
   
   import SchoolEditForm from "@/components/SchoolEditComponents/SchoolEditForm.vue";
   
@@ -41,7 +41,7 @@
   
         try {
           // Pobranie danych nowej placówki z API
-          const response = await axios.get(
+          const response = await api.get(
             "/api/Schools/GetMissingSchoolsInSchoolsTable",
             {
               params: { page, size: itemsPerPage },
@@ -60,7 +60,7 @@
   
       async function onSaveSchool(newSchool) {
         try {
-          const response = await axios.post(
+          const response = await api.post(
             "/api/Schools/AddSingleSchool",
             newSchool
           );

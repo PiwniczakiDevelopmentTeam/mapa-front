@@ -13,9 +13,7 @@
   import 'leaflet.markercluster'; // 🔥 Dodanie grupowania markerów
   import 'leaflet.markercluster/dist/MarkerCluster.css';
   import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-  import axios from 'axios';
-  
-  axios.defaults.baseURL = 'https://api.dev.mapa.tomekb530.me';
+  import api from '@/services/api';
   
   export default {
     name: 'MapPage',
@@ -62,7 +60,7 @@
   
       async fetchTotalSchools() {
         try {
-          const response = await axios.get('/api/Schools/GetSchoolsCount');
+          const response = await api.get('/api/Schools/GetSchoolsCount');
           this.totalSchools = response.data;
         } catch (error) {
           console.error('Błąd podczas pobierania liczby szkół:', error);
@@ -78,7 +76,7 @@
           while (allSchools.length < this.totalSchools) {
             console.log(`Pobieranie strony ${pageNumber}...`);
             
-            const response = await axios.get('/api/Schools/GetSchoolPage', {
+            const response = await api.get('/api/Schools/GetSchoolPage', {
               params: { size, pageNumber },
             });
   

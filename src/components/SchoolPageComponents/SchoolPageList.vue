@@ -120,7 +120,7 @@
 </template>
 
 <script>
-import axios from "axios";
+import api from "@/services/api";
 import SchoolPagePagination from "./SchoolPagePagination.vue";
 
 export default {
@@ -183,7 +183,7 @@ export default {
       if (!this.selectedSchoolId) return;
 
       try {
-        const response = await axios.delete("/api/Schools/DeleteSchool", {
+        const response = await api.delete("/api/Schools/DeleteSchool", {
           params: { id: this.selectedSchoolId }
         });
         console.log("Usunięto placówkę:", response.data);

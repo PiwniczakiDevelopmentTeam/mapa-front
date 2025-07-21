@@ -1,14 +1,16 @@
 <template>
   <div class="container-fluid main-project-container">
     <div id="app" class="d-flex flex-column min-vh-100">
-    <AppHeader />
+    <AppHeader v-if="!shouldHideNavigation" />
       <router-view />
-    <AppFooter />
+    <AppFooter v-if="!shouldHideNavigation" />
     </div>  
   </div>
 </template>
 
 <script>
+import { computed } from 'vue';
+import { useRoute } from 'vue-router';
 import AppHeader from './components/AppHeader.vue';
 import AppFooter from './components/AppFooter.vue';
 
@@ -16,6 +18,17 @@ export default {
   components: {
     AppHeader,
     AppFooter,
+  },
+  setup() {
+    const route = useRoute();
+    
+    const shouldHideNavigation = computed(() => {
+      return route.meta.hideNavigation;
+    });
+
+    return {
+      shouldHideNavigation,
+    };
   },
 };
 </script>

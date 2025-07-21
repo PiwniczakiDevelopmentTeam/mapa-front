@@ -19,7 +19,7 @@
 <script>
 import { ref, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import axios from 'axios';
+import api from '@/services/api';
 
 import SchoolEditForm from '@/components/SchoolEditComponents/SchoolEditForm.vue';
 
@@ -36,7 +36,7 @@ export default {
       const schoolId = route.params.id;
 
       try {
-        const response = await axios.get('/api/Schools/GetSingleSchoolWithChanges', {
+        const response = await api.get('/api/Schools/GetSingleSchoolWithChanges', {
           params: { id: schoolId }
         });
 
@@ -63,7 +63,7 @@ export default {
     async function onSaveSchool(updatedObj) {
       try {
 
-        const response = await axios.put(
+        const response = await api.put(
           '/api/Schools/UpdateSingleSchool',
           updatedObj
         );

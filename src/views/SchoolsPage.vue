@@ -46,11 +46,9 @@
 </template>
 
 <script>
-import axios from 'axios';
+import api from '@/services/api';
 import SchoolPageFilters from '@/components/SchoolPageComponents/SchoolPageFilters.vue';
 import SchoolPageList from '@/components/SchoolPageComponents/SchoolPageList.vue';
-
-axios.defaults.baseURL = 'https://api.dev.mapa.tomekb530.me';
 
 export default {
   name: 'SchoolsPage',
@@ -83,7 +81,7 @@ export default {
     },
     async fetchSchoolsCount() {
       try {
-        const response = await axios.get('/api/Schools/GetSchoolsCount');
+        const response = await api.get('/api/Schools/GetSchoolsCount');
         this.totalItems = response.data;
       } catch (error) {
         console.error('Błąd podczas pobierania łącznej liczby placówek:', error);
@@ -100,7 +98,7 @@ export default {
 
     const body = Array.isArray(this.filterSets) ? this.filterSets : [];
  
-    const response = await axios.post(url, body, {
+    const response = await api.post(url, body, {
       headers: { 'Content-Type': 'application/json' },
     });
 
