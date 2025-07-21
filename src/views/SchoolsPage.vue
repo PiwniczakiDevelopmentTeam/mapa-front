@@ -64,7 +64,7 @@ export default {
       totalItems: 0,
       currentPage: 1,
       itemsPerPage: 20,
-      filters: {},
+      filterSets: [],
     };
   },
   async created() {
@@ -72,6 +72,15 @@ export default {
     await this.fetchSchools();
   },
   methods: {
+     async onApplyFilters(rawFilters) {
+      this.filterSets = Object.entries(rawFilters)
+        .filter(([, val]) => val)
+        .map(([field, value]) => ({ field, value }));
+
+      this.currentPage = 1;
+      await this.fetchSchoolsCount();
+      await this.fetchSchools();
+    },
     async fetchSchoolsCount() {
       try {
         const response = await axios.get('/api/Schools/GetSchoolsCount');
@@ -89,10 +98,12 @@ export default {
 
     const url = `/api/Schools/GetSchoolPage?${queryParams}`;
 
-    const hasFilters = Array.isArray(this.filterSets) && this.filterSets.length > 0;
-    const body = hasFilters ? this.filterSets : undefined;
+    const body = Array.isArray(this.filterSets) ? this.filterSets : [];
+ 
+    const response = await axios.post(url, body, {
+      headers: { 'Content-Type': 'application/json' },
+    });
 
-    const response = await axios.post(url, body);
 
     const rawList = response.data?.$values || [];
 
