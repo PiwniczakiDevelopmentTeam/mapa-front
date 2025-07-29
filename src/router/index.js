@@ -1,6 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useUserStore } from '@/store/userStore';
-import MapPage from '../views/MapPage.vue';
 import SchoolsPage from '../views/SchoolsPage.vue';
 import SchoolEditPage from '../views/SchoolEdit.vue';
 import SchoolAdd from '../views/SchoolAdd.vue';
@@ -20,17 +19,12 @@ const routes = [
     }
   },
   {
-    path: '/',
-    component: MapPage,
-    meta: { requiresAuth: true }
-  },
-  {
     path: '/schools',
     component: SchoolsPage,
     meta: { requiresAuth: true }
   },
   {
-    path: '/school/:id/edit',
+    path: '/schools/edit/:rspo',
     name: 'SchoolEdit',
     component: SchoolEditPage,
     meta: { requiresAuth: true }
@@ -48,7 +42,7 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
-    path: '/schools/add',
+    path: '/schools/add/:rspo',
     name: 'SchoolAdd',
     component: SchoolAdd,
     meta: { requiresAuth: true }

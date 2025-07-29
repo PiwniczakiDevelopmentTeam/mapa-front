@@ -56,14 +56,14 @@
         <template v-else>
           <i
             class="bi bi-pencil-square me-2 icon-action"
-            @click="goToEditPage(school.id)"
+            @click="goToEditPage(school.numerRspo)"
           ></i>
         </template>
 
         <!-- Ikona kosza -->
         <i
           class="bi bi-trash icon-action"
-          @click="confirmDelete(school.id)"
+          @click="confirmDelete(school.numerRspo)"
         ></i>
       </div>
     </div>
@@ -147,51 +147,57 @@ export default {
      * Emitowanie eventu dodawania placówki
      */
     emitAddSchool(school) {
-      console.log("Test emitAddSchool:", school); // Poprawione logowanie
-      this.goToAddPage((this.currentPage - 1) * this.itemsPerPage + (this.schools.indexOf(school) + 1));
+      if (!school.numerRspo) {
+        console.warn("Brakuje numerRspo w obiekcie szkoły:", school);
+        return;
+      }
+      this.goToAddPage(school.numerRspo);
     },
 
     /**
      * Przejście do widoku edycji
      */
-    goToEditPage(schoolId) {
+    goToEditPage(rspo) {
+      if (!rspo) {
+        console.warn("Brakuje RSPO przy próbie edycji!");
+        return;
+      }
       this.$router.push({
         name: "SchoolEdit",
-        params: { id: schoolId }
+        params: { rspo }
       });
     },
 
-    goToAddPage(id){
+    goToAddPage(rspo) {
       this.$router.push({
         name: "SchoolAdd",
-        params: { id } // Przekazuje dynamicznie obliczone ID (bazując na numerze strony i pozycji)
+        params: { rspo }
       });
     },
 
     /**
      * Obsługa usuwania placówki
      */
-    confirmDelete(schoolId) {
-      this.selectedSchoolId = schoolId;
+    confirmDelete(rspo) {
+      this.selectedSchoolRspo = rspo;
       this.showDeleteModal = true;
     },
     closeDeleteModal() {
       this.showDeleteModal = false;
-      this.selectedSchoolId = null;
+      this.selectedSchoolRspo = null;
     },
     async deleteSchool() {
-      if (!this.selectedSchoolId) return;
+      if (!this.selectedSchoolRspo) return;
 
       try {
         const response = await api.delete("/api/Schools/DeleteSchool", {
-          params: { id: this.selectedSchoolId }
+          params: { rspo: this.selectedSchoolRspo }
         });
         console.log("Usunięto placówkę:", response.data);
 
-        const idx = this.schools.findIndex(item => item.id === this.selectedSchoolId);
+        const idx = this.schools.findIndex(item => item.numerRspo === this.selectedSchoolRspo);
         if (idx !== -1) {
-          // eslint-disable-next-line
-          this.schools.splice(idx, 1);
+          this.$emit('school-deleted', this.selectedSchoolRspo);
         }
       } catch (error) {
         console.error("Błąd podczas usuwania placówki:", error);
@@ -202,6 +208,7 @@ export default {
   },
 };
 </script>
+
 
 <style scoped>
 .table-container {

@@ -33,26 +33,23 @@
       const schoolAfter = ref(null);
   
       onMounted(async () => {
-        const id = Number(route.params.id); // ID pozycji na liście przekazane jako route param
-  
-        // Oblicz parametry `page` i `size` dla API
-        const itemsPerPage = 1; // Dla pojedynczej pozycji
-        const page = id; // ID pozycji równa się numerowi strony
+        const rspo = Number(route.params.rspo);
   
         try {
           // Pobranie danych nowej placówki z API
           const response = await api.get(
-            "/api/Schools/GetMissingSchoolsInSchoolsTable",
+            "/api/Schools/GetSingleSchoolWithChanges",
             {
-              params: { page, size: itemsPerPage },
+              params: { rspoId: rspo },
             }
           );
   
-          if (response.data && response.data.length > 0) {
-            const schoolData = response.data[0]; // Dane pierwszej (i jedynej) pozycji
-            schoolBefore.value = schoolData;
-            schoolAfter.value = schoolData; // To samo w obu kolumnach
-          }
+            const { schoolBeforeChanges, schoolsAfterChanges } = response.data;
+
+            if (schoolBeforeChanges && schoolsAfterChanges) {
+              schoolBefore.value = schoolBeforeChanges;
+              schoolAfter.value = schoolsAfterChanges;
+            }
         } catch (err) {
           console.error("Błąd pobierania danych placówki:", err);
         }

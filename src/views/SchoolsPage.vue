@@ -82,7 +82,7 @@ export default {
     async fetchSchoolsCount() {
       try {
         const response = await api.get('/api/Schools/GetSchoolsCount');
-        this.totalItems = response.data;
+        this.totalItems = response.data?.totalCount || 0;
       } catch (error) {
         console.error('Błąd podczas pobierania łącznej liczby placówek:', error);
       }
@@ -103,7 +103,7 @@ export default {
     });
 
 
-    const rawList = response.data?.$values || [];
+    const rawList = response.data?.items?.$values || [];
 
     this.schools = rawList.map((school) => ({
       ...school,

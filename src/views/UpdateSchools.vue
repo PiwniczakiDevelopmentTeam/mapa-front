@@ -70,6 +70,7 @@ export default {
           .map(i => ({
             ...i.schoolsAfterChanges,
             id: i.schoolBeforeChanges.id,
+            numerRspo: i.schoolBeforeChanges.numerRspo, // <--- DODAJ TO!
             isInLocalDb: true
           }))
       } catch (e) {

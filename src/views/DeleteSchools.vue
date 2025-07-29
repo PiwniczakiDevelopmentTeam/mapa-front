@@ -58,7 +58,11 @@ export default {
           []
         this.totalItems =
           data.totalItems ?? data.schoolsCount ?? rawDelete.length
-        this.schools = rawDelete.map(s => ({ ...s, isInLocalDb: true }))
+        this.schools = rawDelete.map(s => ({
+          ...s,
+          numerRspo: s.numerRspo ?? s.numerRspoFromApi,
+          isInLocalDb: true
+        }));
       } catch (e) {
         console.error('Błąd pobierania placówek do usunięcia:', e)
       }

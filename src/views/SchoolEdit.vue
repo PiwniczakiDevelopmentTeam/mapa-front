@@ -1,7 +1,7 @@
 <template>
   <div class="container mt-4 text-white">
     <h2>Edycja placówki</h2>
-    
+
     <SchoolEditForm
       v-if="schoolBefore && schoolAfter"
       :schoolBefore="schoolBefore"
@@ -33,11 +33,11 @@ export default {
     const schoolAfter = ref(null);
 
     onMounted(async () => {
-      const schoolId = route.params.id;
+      const rspoId = route.params.rspo;
 
       try {
         const response = await api.get('/api/Schools/GetSingleSchoolWithChanges', {
-          params: { id: schoolId }
+          params: { rspoId }
         });
 
         const before = response.data.schoolBeforeChanges;
@@ -53,7 +53,7 @@ export default {
         }
 
         schoolBefore.value = before;
-        schoolAfter.value  = after;
+        schoolAfter.value = after;
 
       } catch (err) {
         console.error('Błąd pobierania placówki (GetSingleSchoolWithChanges):', err);
@@ -62,14 +62,12 @@ export default {
 
     async function onSaveSchool(updatedObj) {
       try {
-
         const response = await api.put(
           '/api/Schools/UpdateSingleSchool',
           updatedObj
         );
-        
+
         console.log('Aktualizacja powiodła się. Odpowiedź serwera:', response.data);
-        
         router.push('/');
       } catch (error) {
         console.error('Błąd aktualizacji placówki:', error);

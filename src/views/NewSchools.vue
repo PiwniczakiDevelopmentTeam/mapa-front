@@ -22,6 +22,7 @@
           :itemsPerPage="itemsPerPage"
           :totalItems="totalItems"
           @page-changed="onPageChanged"
+          @school-deleted="onSchoolDeleted"
         />
       </div>
     </div>
@@ -47,6 +48,9 @@ export default {
     await this.fetchData()
   },
   methods: {
+    onSchoolDeleted(rspo) {
+      this.schools = this.schools.filter(s => s.numerRspo !== rspo);
+    },
     async fetchData () {
       try {
         const { data } = await api.get('/api/Schools/GetChanges', {
@@ -54,8 +58,12 @@ export default {
         })
         const rawNew = data.newSchools?.$values || data.NewSchools || []
         this.totalItems = data.totalItems ?? data.schoolsCount ?? rawNew.length
-        this.schools = rawNew.map(s => ({ ...s, isInLocalDb: false }))
-      } catch (e) {
+        this.schools = rawNew.map(s => ({
+          ...s,
+          numerRspo: s.numerRspo ?? s.numerRspoFromApi, // fallback jeśli masz inne źródło
+          isInLocalDb: false
+        }));     
+       } catch (e) {
         console.error('Błąd pobierania nowych placówek:', e)
       }
     },
