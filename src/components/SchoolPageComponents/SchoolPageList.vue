@@ -131,6 +131,10 @@ export default {
     currentPage: Number,
     itemsPerPage: Number,
     totalItems: Number,
+    mode: {
+      type: String,
+      default: "edit" // 'new', 'update', 'delete'
+    }
   },
   data() {
     return {
@@ -158,14 +162,18 @@ export default {
      * Przejście do widoku edycji
      */
     goToEditPage(rspo) {
-      if (!rspo) {
-        console.warn("Brakuje RSPO przy próbie edycji!");
-        return;
+      if (!rspo) return;
+
+      const target = {
+        name:  'SchoolEdit',
+        params:{ rspo }
+      };
+
+      if (this.mode === 'delete') {
+        target.query = { fromDelete: 'true' };
       }
-      this.$router.push({
-        name: "SchoolEdit",
-        params: { rspo }
-      });
+
+      this.$router.push(target);
     },
 
     goToAddPage(rspo) {
@@ -191,7 +199,7 @@ export default {
 
       try {
         const response = await api.delete("/api/Schools/DeleteSchool", {
-          params: { rspo: this.selectedSchoolRspo }
+          params: { rspoId: this.selectedSchoolRspo }
         });
         console.log("Usunięto placówkę:", response.data);
 

@@ -36,20 +36,17 @@
         const rspo = Number(route.params.rspo);
   
         try {
-          // Pobranie danych nowej placówki z API
-          const response = await api.get(
-            "/api/Schools/GetSingleSchoolWithChanges",
+          const response = await api.post(
+            "/api/Schools/GetSingleSchoolFromRSPO", null,
             {
               params: { rspoId: rspo },
             }
           );
   
-            const { schoolBeforeChanges, schoolsAfterChanges } = response.data;
+          console.log(response.data);
 
-            if (schoolBeforeChanges && schoolsAfterChanges) {
-              schoolBefore.value = schoolBeforeChanges;
-              schoolAfter.value = schoolsAfterChanges;
-            }
+          schoolBefore.value = response.data;
+          schoolAfter.value = response.data;
         } catch (err) {
           console.error("Błąd pobierania danych placówki:", err);
         }
@@ -57,15 +54,32 @@
   
       async function onSaveSchool(newSchool) {
         try {
-          const response = await api.post(
-            "/api/Schools/AddSingleSchool",
-            newSchool
-          );
-  
-          console.log("Dodano nową placówkę. Odpowiedź serwera:", response.data);
-          router.push("/");
-        } catch (error) {
-          console.error("Błąd podczas dodawania placówki:", error);
+          const payload = JSON.parse(JSON.stringify(newSchool));
+
+          delete payload.id;
+          delete payload.$id;
+          if (payload.geography) delete payload.geography.$id;
+
+
+          if (Array.isArray(payload.podmiotProwadzacy) && payload.podmiotProwadzacy.length) {
+            payload.podmiotProwadzacyTyp   = payload.podmiotProwadzacy[0]?.typ?.nazwa || '';
+            payload.podmiotProwadzacyNazwa = payload.podmiotProwadzacy[0]?.nazwa     || '';
+          }
+          delete payload.podmiotProwadzacy;
+
+          console.log('PAYLOAD CZYSTY:', JSON.stringify(payload, null, 2));
+
+
+          const res = await api.post('/api/Schools/AddSingleSchool', payload);
+          console.log('Dodano placówkę:', res.data);
+          router.push('/');
+        } catch (err) {
+          if (err.response) {
+            console.error('Status:', err.response.status);
+            console.error('Body:',   err.response.data);
+          } else {
+            console.error('Błąd sieci / timeout:', err.message);
+          }
         }
       }
   

@@ -33,30 +33,39 @@ export default {
     const schoolAfter = ref(null);
 
     onMounted(async () => {
-      const rspoId = route.params.rspo;
+      const rspoId     = route.params.rspo;
+      const fromDelete = route.query.fromDelete === 'true';
 
       try {
-        const response = await api.get('/api/Schools/GetSingleSchoolWithChanges', {
-          params: { rspoId }
-        });
+        let res;
 
-        const before = response.data.schoolBeforeChanges;
-        const after = response.data.schoolsAfterChanges;
-
-        if (typeof after.podmiotProwadzacy === 'string') {
-          try {
-            after.podmiotProwadzacy = JSON.parse(after.podmiotProwadzacy);
-          } catch (err) {
-            console.warn('Nie udało się zdekodować schoolAfter.podmiotProwadzacy:', err);
-            after.podmiotProwadzacy = [];
-          }
+        if (fromDelete) {
+          res = await api.post('/api/Schools/GetSingleSchool',
+                              null,
+                              { params: { rspoId } });
+        } else {
+          res = await api.get('/api/Schools/GetSingleSchoolWithChanges',
+                              { params: { rspoId } });
         }
 
-        schoolBefore.value = before;
-        schoolAfter.value = after;
+        if (fromDelete) {
+          const single = res.data;
+          schoolBefore.value = single;
+          schoolAfter.value  = JSON.parse(JSON.stringify(single));
+        } else {
+          const before = res.data.schoolBeforeChanges;
+          const after  = res.data.schoolsAfterChanges;
 
+          if (typeof after.podmiotProwadzacy === 'string') {
+            try { after.podmiotProwadzacy = JSON.parse(after.podmiotProwadzacy); }
+            catch { after.podmiotProwadzacy = []; }
+          }
+
+          schoolBefore.value = before;
+          schoolAfter.value  = after;
+        }
       } catch (err) {
-        console.error('Błąd pobierania placówki (GetSingleSchoolWithChanges):', err);
+        console.error('Błąd pobierania placówki:', err);
       }
     });
 

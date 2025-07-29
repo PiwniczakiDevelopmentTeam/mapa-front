@@ -12,7 +12,7 @@
             <i class="bi bi-pencil-square me-2 icon-large"></i> Pokaż placówki do zaktualizowania
           </div>
           <div class="col-4 d-flex align-items-center text-white" style="cursor:pointer;" @click="$router.push('/schools/delete')">
-            <i class="bi bi-trash me-2 icon-large"></i> Pokaż placówki do usunięcia
+            <i class="bi bi-trash me-2 icon-large"></i> Pokaż pl`acówki do usunięcia
           </div>
         </div>
 
@@ -21,6 +21,7 @@
           :currentPage="currentPage"
           :itemsPerPage="itemsPerPage"
           :totalItems="totalItems"
+          mode="delete"
           @page-changed="onPageChanged"
         />
       </div>
