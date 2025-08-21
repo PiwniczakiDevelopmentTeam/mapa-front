@@ -7,6 +7,7 @@ import DeleteSchools from '../views/DeleteSchools.vue';
 import NewSchools from '@/views/NewSchools.vue';
 import UpdateSchools from '@/views/UpdateSchools.vue';
 import LoginPage from '@/views/LoginPage.vue';
+import AdminPage from '@/views/AdminPage.vue';
 
 const routes = [
   {
@@ -19,8 +20,20 @@ const routes = [
     }
   },
   {
+    path: '/',
+    name: 'Home',
+    component: () => import('../views/HomePage.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
     path: '/schools',
     component: SchoolsPage,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/admin',
+    name: 'Admin',
+    component: AdminPage,
     meta: { requiresAuth: true }
   },
   {

@@ -15,15 +15,24 @@
         <div class="collapse navbar-collapse" id="mainMenu">
           <ul class="navbar-nav me-auto mb-2 mb-lg-0">
             <li class="nav-item">
-              <router-link class="nav-link" to="/">Mapa</router-link>
+              <router-link class="nav-link" to="/">Strona główna</router-link>
             </li>
             <li class="nav-item">
               <router-link class="nav-link" to="/schools">Placówki</router-link>
             </li>
             <li class="nav-item">
-              <a class="nav-link" href="#">Użytkownicy</a>
+              <router-link class="nav-link" to="/admin">
+                <i class="bi bi-gear me-1"></i>
+                Administracja
+              </router-link>
             </li>
           </ul>
+          
+          <!-- Status synchronizacji RSPO -->
+          <div class="d-flex align-items-center me-3">
+            <SyncProgress />
+          </div>
+          
           <ul class="navbar-nav ms-auto">
             <li class="nav-item dropdown" v-if="userStore.user">
               <a
@@ -74,9 +83,13 @@
   <script>
   import { useUserStore } from '@/store/userStore';
   import { useRouter } from 'vue-router';
+  import SyncProgress from './SyncProgress.vue';
 
   export default {
     name: "AppMainMenu",
+    components: {
+      SyncProgress,
+    },
     setup() {
       const userStore = useUserStore();
       const router = useRouter();
