@@ -358,7 +358,7 @@ export default {
       isStartingSync.value = true;
       
       try {
-        const response = await api.post('/api/Schools/GetDataFromRSPO');
+        const response = await api.get('/api/Schools/GetDataFromRSPO');
         
         if (response.data?.message) {
           // Pokaż komunikat o rozpoczęciu synchronizacji
