@@ -15,7 +15,28 @@
         Pokaż placówki do usunięcia
       </div>
     </div>
+
+    <!-- Loader -->
+    <div v-if="isLoading" class="d-flex justify-content-center align-items-center py-5">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Ładowanie...</span>
+      </div>
+      <span class="ms-3 text-white">Pobieranie placówek do aktualizacji...</span>
+    </div>
+
+    <!-- Błąd -->
+    <div v-else-if="error" class="alert alert-danger" role="alert">
+      <i class="bi bi-exclamation-triangle me-2"></i>
+      {{ error }}
+      <button @click="fetchData" class="btn btn-outline-danger btn-sm ms-3">
+        <i class="bi bi-arrow-clockwise me-1"></i>
+        Spróbuj ponownie
+      </button>
+    </div>
+
+    <!-- Lista szkół -->
     <SchoolPageList
+      v-else
       :schools="schools"
       :currentPage="currentPage"
       :itemsPerPage="pageSize"
@@ -37,7 +58,9 @@ export default {
       schools: [],
       currentPage: 1,
       pageSize: 20,
-      totalItems: 0
+      totalItems: 0,
+      isLoading: false,
+      error: null
     }
   },
   async created () {
@@ -45,10 +68,15 @@ export default {
   },
   methods: {
     async fetchData (page = 1) {
+      this.isLoading = true
+      this.error = null
+      
       try {
         const { data } = await api.get('/api/Schools/GetChanges', {
           params: { page, size: this.pageSize }
         })
+
+        console.log('API Response (UpdateSchools):', data) // Debug
 
         const container =
           data.changedSchools ??
@@ -70,11 +98,17 @@ export default {
           .map(i => ({
             ...i.schoolsAfterChanges,
             id: i.schoolBeforeChanges.id,
-            numerRspo: i.schoolBeforeChanges.numerRspo, // <--- DODAJ TO!
+            numerRspo: i.schoolBeforeChanges.numerRspo,
             isInLocalDb: true
           }))
+          
+        console.log('Mapped schools (UpdateSchools):', this.schools) // Debug
+        
       } catch (e) {
         console.error('Błąd pobierania zmian (GetChanges):', e)
+        this.error = `Błąd pobierania danych: ${e.response?.data?.message || e.message}`
+      } finally {
+        this.isLoading = false
       }
     },
     onPageChanged (p) {

@@ -12,11 +12,31 @@
             <i class="bi bi-pencil-square me-2 icon-large"></i> Pokaż placówki do zaktualizowania
           </div>
           <div class="col-4 d-flex align-items-center text-white" style="cursor:pointer;" @click="$router.push('/schools/delete')">
-            <i class="bi bi-trash me-2 icon-large"></i> Pokaż pl`acówki do usunięcia
+            <i class="bi bi-trash me-2 icon-large"></i> Pokaż placówki do usunięcia
           </div>
         </div>
 
+        <!-- Loader -->
+        <div v-if="isLoading" class="d-flex justify-content-center align-items-center py-5">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Ładowanie...</span>
+          </div>
+          <span class="ms-3 text-white">Pobieranie placówek do usunięcia...</span>
+        </div>
+
+        <!-- Błąd -->
+        <div v-else-if="error" class="alert alert-danger" role="alert">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          {{ error }}
+          <button @click="fetchData" class="btn btn-outline-danger btn-sm ms-3">
+            <i class="bi bi-arrow-clockwise me-1"></i>
+            Spróbuj ponownie
+          </button>
+        </div>
+
+        <!-- Lista szkół -->
         <SchoolPageList
+          v-else
           :schools="schools"
           :currentPage="currentPage"
           :itemsPerPage="itemsPerPage"
@@ -41,7 +61,9 @@ export default {
       schools: [],
       currentPage: 1,
       itemsPerPage: 20,
-      totalItems: 0
+      totalItems: 0,
+      isLoading: false,
+      error: null
     }
   },
   async created () {
@@ -49,23 +71,34 @@ export default {
   },
   methods: {
     async fetchData () {
+      this.isLoading = true
+      this.error = null
+      
       try {
         const { data } = await api.get('/api/Schools/GetChanges', {
           params: { size: this.itemsPerPage, page: this.currentPage }
         })
-        const rawDelete =
-          data.notExistingSchools?.$values ||
-          data.NotExistingSchools ||
-          []
-        this.totalItems =
-          data.totalItems ?? data.schoolsCount ?? rawDelete.length
+        
+        console.log('API Response (DeleteSchools):', data) // Debug
+        
+        const container = data.notExistingSchools ?? data.NotExistingSchools ?? {}
+        const rawDelete = Array.isArray(container) ? container : (container.$values ?? [])
+        
+        this.totalItems = data.totalItems ?? data.schoolsCount ?? rawDelete.length
+        
         this.schools = rawDelete.map(s => ({
           ...s,
-          numerRspo: s.numerRspo ?? s.numerRspoFromApi,
+          numerRspo: s.numerRspo ?? s.numerRspoFromApi ?? s.id,
           isInLocalDb: true
-        }));
+        }))
+        
+        console.log('Mapped schools (DeleteSchools):', this.schools) // Debug
+        
       } catch (e) {
         console.error('Błąd pobierania placówek do usunięcia:', e)
+        this.error = `Błąd pobierania danych: ${e.response?.data?.message || e.message}`
+      } finally {
+        this.isLoading = false
       }
     },
     onPageChanged (p) {
