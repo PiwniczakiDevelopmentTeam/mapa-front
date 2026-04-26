@@ -2,7 +2,7 @@ import axios from "axios";
 import { useUserStore } from "@/stores/userStore";
 
 const api = axios.create({
-  baseURL: "https://api.dev.mapa.tomekb530.me",
+  baseURL: "",
   timeout: 10000,
   headers: {
     "Content-Type": "application/json",

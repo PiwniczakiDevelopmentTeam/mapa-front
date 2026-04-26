@@ -1,7 +1,12 @@
 import { createRouter, createWebHistory } from "vue-router";
 import LoginPage from "@/views/LoginPage.vue";
 import HomePage from "@/views/HomePage.vue";
-// import { useUserStore } from "@/stores/userStore";
+import SchoolsPage from "@/views/SchoolsPage.vue";
+import ImportPage from "@/views/ImportPage.vue";
+import AuditPage from "@/views/AuditPage.vue";
+import ErrorsPage from "@/views/ErrorsPage.vue";
+import UsersPage from "@/views/UsersPage.vue";
+import SchoolEditPage from "@/views/SchoolEditPage.vue";
 
 const routes = [
   {
@@ -16,28 +21,47 @@ const routes = [
     component: HomePage,
     meta: { requiresAuth: true },
   },
+  {
+    path: "/placowki",
+    name: "Schools",
+    component: SchoolsPage,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/import",
+    name: "Import",
+    component: ImportPage,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/audyt",
+    name: "Audit",
+    component: AuditPage,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/bledy",
+    name: "Errors",
+    component: ErrorsPage,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/uzytkownicy",
+    name: "Users",
+    component: UsersPage,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/placowki/:rspoId/edytuj",
+    name: "SchoolEdit",
+    component: SchoolEditPage,
+    meta: { requiresAuth: true },
+  },
 ];
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
 });
-
-// TODO: odkomentowac w prod
-
-// router.beforeEach((to, _from, next) => {
-//   const userStore = useUserStore();
-
-//   if (to.meta.requiresAuth && !userStore.isAuthenticated) {
-//     next({
-//       path: "/login",
-//       query: { redirect: to.fullPath },
-//     });
-//   } else if (to.path === "/login" && userStore.isAuthenticated) {
-//     next("/");
-//   } else {
-//     next();
-//   }
-// });
 
 export default router;
