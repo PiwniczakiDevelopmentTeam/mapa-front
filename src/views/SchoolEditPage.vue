@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import AppLayout from "@/components/layout/AppLayout.vue";
 import SchoolFormField from "@/components/school/SchoolFormField.vue";
@@ -9,6 +9,7 @@ import type { SchoolDTO } from "@/models/school/SchoolDTO";
 const route = useRoute();
 const router = useRouter();
 
+const isAddMode = computed(() => route.name === "SchoolAdd");
 const rspoId = Number(route.params.rspoId);
 const loading = ref(true);
 const saving = ref(false);
@@ -27,24 +28,31 @@ const rspoForm = ref<SchoolDTO | null>(null);
 
 onMounted(async () => {
   try {
-    const [schoolRes, rspoRes] = await Promise.allSettled([
-      api.post<SchoolDTO>(`/api/Schools/GetSingleSchool?rspoId=${rspoId}`),
-      api.post<SchoolDTO>(`/api/Schools/GetSingleSchoolFromRSPO?rspoId=${rspoId}`),
-    ]);
-
-    if (schoolRes.status === "fulfilled") {
-      form.value = schoolRes.value.data;
+    if (isAddMode.value) {
+      const rspoRes = await api.post<SchoolDTO>(`/api/Schools/GetSingleSchoolFromRSPO?rspoId=${rspoId}`);
+      form.value = rspoRes.data;
       if (!form.value.geography) form.value.geography = { x: 0, y: 0 };
+      rspoForm.value = { ...form.value, geography: { ...form.value.geography! } };
     } else {
-      error.value = "Nie udało się pobrać danych placówki.";
-    }
+      const [schoolRes, rspoRes] = await Promise.allSettled([
+        api.post<SchoolDTO>(`/api/Schools/GetSingleSchool?rspoId=${rspoId}`),
+        api.post<SchoolDTO>(`/api/Schools/GetSingleSchoolFromRSPO?rspoId=${rspoId}`),
+      ]);
 
-    if (rspoRes.status === "fulfilled") {
-      rspoForm.value = rspoRes.value.data;
-      if (rspoForm.value && !rspoForm.value.geography) {
-        rspoForm.value.geography = { x: 0, y: 0 };
+      if (schoolRes.status === "fulfilled") {
+        form.value = schoolRes.value.data;
+        if (!form.value.geography) form.value.geography = { x: 0, y: 0 };
+      } else {
+        error.value = "Nie udało się pobrać danych placówki.";
+      }
+
+      if (rspoRes.status === "fulfilled") {
+        rspoForm.value = rspoRes.value.data;
+        if (rspoForm.value && !rspoForm.value.geography) rspoForm.value.geography = { x: 0, y: 0 };
       }
     }
+  } catch {
+    error.value = "Nie udało się pobrać danych placówki z RSPO.";
   } finally {
     loading.value = false;
   }
@@ -55,10 +63,17 @@ async function handleSave(): Promise<void> {
   saveError.value = null;
   saved.value = false;
   try {
-    await api.put("/api/Schools/UpdateSingleSchool", form.value);
-    saved.value = true;
+    if (isAddMode.value) {
+      await api.post("/api/Schools/AddSingleSchool", form.value);
+      router.push("/placowki");
+    } else {
+      await api.put("/api/Schools/UpdateSingleSchool", form.value);
+      saved.value = true;
+    }
   } catch {
-    saveError.value = "Nie udało się zapisać zmian.";
+    saveError.value = isAddMode.value
+      ? "Nie udało się dodać placówki."
+      : "Nie udało się zapisać zmian.";
   } finally {
     saving.value = false;
   }
@@ -98,7 +113,7 @@ function goBack(): void {
         </button>
         <span class="text-gray-300">/</span>
         <h2 class="text-gray-800 font-semibold text-lg truncate">
-          {{ loading ? "Ładowanie..." : form.nazwa }}
+          {{ loading ? "Ładowanie..." : isAddMode ? `Dodaj: ${form.nazwa}` : form.nazwa }}
         </h2>
       </div>
     </template>
@@ -116,6 +131,9 @@ function goBack(): void {
     </div>
 
     <form v-else @submit.prevent="handleSave" class="space-y-4 max-w-4xl">
+      <div v-if="isAddMode" class="bg-blue-50 border border-blue-200 text-blue-700 rounded-lg p-3 text-sm">
+        Formularz wypełniony danymi z RSPO. Możesz je zmodyfikować przed dodaniem do bazy.
+      </div>
       <div v-if="saved" class="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-lg p-3 text-sm">
         Zmiany zostały zapisane.
       </div>
@@ -403,7 +421,7 @@ function goBack(): void {
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
             </svg>
-            {{ saving ? "Zapisywanie..." : "Zapisz zmiany" }}
+            {{ saving ? (isAddMode ? "Dodawanie..." : "Zapisywanie...") : (isAddMode ? "Dodaj do bazy" : "Zapisz zmiany") }}
           </button>
         </div>
       </div>

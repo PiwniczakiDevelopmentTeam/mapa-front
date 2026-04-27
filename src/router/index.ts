@@ -57,6 +57,12 @@ const routes = [
     component: SchoolEditPage,
     meta: { requiresAuth: true },
   },
+  {
+    path: "/placowki/:rspoId/dodaj",
+    name: "SchoolAdd",
+    component: SchoolEditPage,
+    meta: { requiresAuth: true },
+  },
 ];
 
 const router = createRouter({

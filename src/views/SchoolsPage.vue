@@ -1,13 +1,18 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 import { useRouter } from "vue-router";
 import AppLayout from "@/components/layout/AppLayout.vue";
+import MissingSchoolsTab from "@/components/school/MissingSchoolsTab.vue";
+import ObsoleteSchoolsTab from "@/components/school/ObsoleteSchoolsTab.vue";
 import api from "@/services/api";
 import type { SchoolDTO } from "@/models/school/SchoolDTO";
 import type { PagedResult } from "@/models/common/PagedResult";
 import type { FilterParams } from "@/models/common/FilterParams";
 
 const router = useRouter();
+
+type Tab = "all" | "missing" | "obsolete";
+const activeTab = ref<Tab>("all");
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
@@ -20,9 +25,22 @@ const error = ref<string | null>(null);
 
 const search = ref("");
 const filterWoj = ref("");
+const filterPodmiot = ref("");
 const filterTyp = ref("");
+const filterStatus = ref("");
+const filterKategoria = ref("");
+const filterSpecyfika = ref("");
+const filterGminaRodzaj = ref("");
+const filterPowiat = ref("");
+const filterMiejscowosc = ref("");
 
+const showMoreFilters = ref(false);
 const totalPages = ref(0);
+
+const activeExtraFiltersCount = computed(() =>
+  [filterTyp, filterStatus, filterKategoria, filterSpecyfika, filterGminaRodzaj, filterPowiat, filterMiejscowosc]
+    .filter((f) => f.value).length
+);
 
 async function fetchSchools(): Promise<void> {
   loading.value = true;
@@ -31,7 +49,14 @@ async function fetchSchools(): Promise<void> {
     const filters: FilterParams[] = [];
     if (search.value.trim()) filters.push({ field: "nazwa", value: search.value.trim() });
     if (filterWoj.value) filters.push({ field: "wojewodztwo", value: filterWoj.value });
+    if (filterPodmiot.value) filters.push({ field: "podmiotProwadzacyTyp", value: filterPodmiot.value });
     if (filterTyp.value) filters.push({ field: "typ", value: filterTyp.value });
+    if (filterStatus.value) filters.push({ field: "statusPublicznoPrawny", value: filterStatus.value });
+    if (filterKategoria.value) filters.push({ field: "kategoriaUczniow", value: filterKategoria.value });
+    if (filterSpecyfika.value) filters.push({ field: "specyfikaSzkoly", value: filterSpecyfika.value });
+    if (filterGminaRodzaj.value) filters.push({ field: "gminaRodzaj", value: filterGminaRodzaj.value });
+    if (filterPowiat.value.trim()) filters.push({ field: "powiat", value: filterPowiat.value.trim() });
+    if (filterMiejscowosc.value.trim()) filters.push({ field: "miejscowosc", value: filterMiejscowosc.value.trim() });
 
     const res = await api.post<PagedResult<SchoolDTO>>(
       `/api/Schools/GetSchoolPage?size=${pageSize.value}&pageNumber=${currentPage.value}`,
@@ -50,9 +75,26 @@ async function fetchSchools(): Promise<void> {
   }
 }
 
-watch([filterWoj, filterTyp], () => {
+watch(
+  [filterWoj, filterPodmiot, filterTyp, filterStatus, filterKategoria, filterSpecyfika, filterGminaRodzaj],
+  () => {
+    currentPage.value = 1;
+    fetchSchools();
+  }
+);
+
+let powiatTimeout: ReturnType<typeof setTimeout> | null = null;
+watch(filterPowiat, () => {
   currentPage.value = 1;
-  fetchSchools();
+  if (powiatTimeout) clearTimeout(powiatTimeout);
+  powiatTimeout = setTimeout(fetchSchools, 400);
+});
+
+let miejscowoscTimeout: ReturnType<typeof setTimeout> | null = null;
+watch(filterMiejscowosc, () => {
+  currentPage.value = 1;
+  if (miejscowoscTimeout) clearTimeout(miejscowoscTimeout);
+  miejscowoscTimeout = setTimeout(fetchSchools, 400);
 });
 
 watch(pageSize, () => {
@@ -80,36 +122,65 @@ fetchSchools();
   <AppLayout>
     <template #header>
       <div class="flex items-center justify-between">
-        <h2 class="text-gray-800 font-semibold text-lg">Placówki</h2>
-        <span v-if="totalCount > 0" class="text-sm text-gray-500">
+        <div class="flex items-center gap-1">
+          <button
+            @click="activeTab = 'all'"
+            :class="[
+              'px-4 py-2 text-sm font-medium rounded-md transition-colors',
+              activeTab === 'all' ? 'bg-[#051330] text-white' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100',
+            ]"
+          >
+            Wszystkie placówki
+          </button>
+          <button
+            @click="activeTab = 'missing'"
+            :class="[
+              'px-4 py-2 text-sm font-medium rounded-md transition-colors',
+              activeTab === 'missing' ? 'bg-[#051330] text-white' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100',
+            ]"
+          >
+            Dodaj placówki do mapy
+          </button>
+          <button
+            @click="activeTab = 'obsolete'"
+            :class="[
+              'px-4 py-2 text-sm font-medium rounded-md transition-colors',
+              activeTab === 'obsolete' ? 'bg-red-600 text-white' : 'text-gray-500 hover:text-gray-800 hover:bg-gray-100',
+            ]"
+          >
+            Usuń placówki
+          </button>
+        </div>
+        <span v-if="activeTab === 'all' && totalCount > 0" class="text-sm text-gray-500">
           {{ totalCount.toLocaleString("pl-PL") }} placówek łącznie
         </span>
       </div>
     </template>
 
-    <div class="space-y-4">
-      <div class="bg-white rounded-lg border border-gray-200 p-4">
+    <MissingSchoolsTab v-if="activeTab === 'missing'" />
+    <ObsoleteSchoolsTab v-if="activeTab === 'obsolete'" />
+
+    <div v-if="activeTab === 'all'" class="space-y-4">
+      <div class="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+        <!-- Wiersz 1: szukajka + wierszy -->
         <div class="flex gap-3">
           <div class="flex-1 relative">
-            <svg
-              class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0" />
             </svg>
-            <input
-              v-model="search"
-              type="text"
-              placeholder="Szukaj po nazwie..."
-              class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#051330]/30 focus:border-[#051330]"
-            />
+            <input v-model="search" type="text" placeholder="Szukaj po nazwie..." class="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#051330]/30 focus:border-[#051330]" />
           </div>
-          <select
-            v-model="filterWoj"
-            class="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#051330]/30 focus:border-[#051330] text-gray-600"
-          >
+          <div class="flex items-center gap-2 text-sm text-gray-600">
+            <span class="whitespace-nowrap">Wierszy:</span>
+            <select v-model.number="pageSize" class="border border-gray-300 rounded-md px-2 py-2 focus:outline-none focus:ring-2 focus:ring-[#051330]/30 focus:border-[#051330]">
+              <option v-for="opt in PAGE_SIZE_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Wiersz 2: główne filtry + przycisk rozwiń -->
+        <div class="flex flex-wrap items-center gap-3">
+          <select v-model="filterWoj" class="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#051330]/30 focus:border-[#051330] text-gray-600">
             <option value="">Wszystkie województwa</option>
             <option>dolnośląskie</option>
             <option>kujawsko-pomorskie</option>
@@ -128,27 +199,104 @@ fetchSchools();
             <option>wielkopolskie</option>
             <option>zachodniopomorskie</option>
           </select>
-          <select
-            v-model="filterTyp"
-            class="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#051330]/30 focus:border-[#051330] text-gray-600"
-          >
-            <option value="">Wszystkie typy</option>
-            <option>Szkoła podstawowa</option>
-            <option>Liceum ogólnokształcące</option>
-            <option>Technikum</option>
-            <option>Branżowa szkoła I stopnia</option>
-            <option>Przedszkole</option>
-            <option>Szkoła policealna</option>
+          <select v-model="filterPodmiot" class="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#051330]/30 focus:border-[#051330] text-gray-600">
+            <option value="">Wszystkie podmioty prowadzące</option>
+            <option>Fundacje</option>
+            <option>Gmina</option>
+            <option>Miasto na prawach powiatu</option>
+            <option>Minister ds. rolnictwa i rozwoju wsi</option>
+            <option>Minister ds. sprawiedliwości</option>
+            <option>Organizacje Wyznaniowe</option>
+            <option>Osoba Fizyczna - Pracodawca</option>
+            <option>Osoba fizyczna</option>
+            <option>Powiat ziemski</option>
+            <option>Przedsiębiorstwa Osób Fizycznych</option>
+            <option>Przedsiębiorstwo Państwowe</option>
+            <option>Samorząd województwa</option>
+            <option>Spółdzielnia</option>
+            <option>Spółki Handlowe</option>
+            <option>Stowarzyszenia</option>
+            <option>Uczelnia Niepubliczna</option>
           </select>
-          <div class="flex items-center gap-2 text-sm text-gray-600">
-            <span class="whitespace-nowrap">Wierszy:</span>
-            <select
-              v-model.number="pageSize"
-              class="border border-gray-300 rounded-md px-2 py-2 focus:outline-none focus:ring-2 focus:ring-[#051330]/30 focus:border-[#051330]"
-            >
-              <option v-for="opt in PAGE_SIZE_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
-            </select>
-          </div>
+          <button
+            type="button"
+            @click="showMoreFilters = !showMoreFilters"
+            class="flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border transition-colors"
+            :class="activeExtraFiltersCount > 0
+              ? 'border-[#051330] text-[#051330] bg-[#051330]/5'
+              : 'border-gray-300 text-gray-600 hover:bg-gray-50'"
+          >
+            <svg class="w-4 h-4 transition-transform" :class="showMoreFilters ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+            Więcej filtrów
+            <span v-if="activeExtraFiltersCount > 0" class="ml-0.5 bg-[#051330] text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+              {{ activeExtraFiltersCount }}
+            </span>
+          </button>
+        </div>
+
+        <!-- Collapse: dodatkowe filtry -->
+        <div v-show="showMoreFilters" class="grid grid-cols-2 gap-3 pt-1 border-t border-gray-100">
+          <select v-model="filterTyp" class="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#051330]/30 focus:border-[#051330] text-gray-600">
+            <option value="">Wszystkie typy placówek</option>
+            <option>Biblioteki pedagogiczne</option>
+            <option>Branżowa szkoła I stopnia</option>
+            <option>Bursa</option>
+            <option>Centrum Kształcenia Zawodowego</option>
+            <option>Liceum ogólnokształcące</option>
+            <option>Międzyszkolny ośrodek sportowy</option>
+            <option>Młodzieżowy Ośrodek Socjoterapii ze szkołami</option>
+            <option>Młodzieżowy Ośrodek Wychowawczy</option>
+            <option>Młodzieżowy dom kultury</option>
+            <option>Niepubliczna placówka oświatowo-wychowawcza w systemie oświaty</option>
+            <option>Ośrodek Rewalidacyjno-Wychowawczy</option>
+            <option>Pałac młodzieży</option>
+            <option>Placówka Kształcenia Ustawicznego - bez szkół</option>
+            <option>Placówka Kształcenia Ustawicznego ze szkołami</option>
+            <option>Placówka doskonalenia nauczycieli</option>
+            <option>Poradnia psychologiczno-pedagogiczna</option>
+            <option>Poradnia specjalistyczna</option>
+            <option>Przedszkole</option>
+            <option>Punkt przedszkolny</option>
+            <option>Specjalny Ośrodek Szkolno-Wychowawczy</option>
+            <option>Specjalny Ośrodek Wychowawczy</option>
+            <option>Szkolne schronisko młodzieżowe</option>
+            <option>Szkoła muzyczna I stopnia</option>
+            <option>Szkoła muzyczna II stopnia</option>
+            <option>Szkoła podstawowa</option>
+            <option>Szkoła policealna</option>
+            <option>Szkoła specjalna przysposabiająca do pracy</option>
+            <option>Technikum</option>
+            <option>Zespół szkół i placówek oświatowych</option>
+          </select>
+          <select v-model="filterStatus" class="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#051330]/30 focus:border-[#051330] text-gray-600">
+            <option value="">Publiczne i niepubliczne</option>
+            <option>publiczna</option>
+            <option>niepubliczna</option>
+          </select>
+          <select v-model="filterKategoria" class="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#051330]/30 focus:border-[#051330] text-gray-600">
+            <option value="">Wszystkie kategorie uczniów</option>
+            <option>Bez kategorii</option>
+            <option>Dorośli</option>
+            <option>Dzieci lub młodzież</option>
+          </select>
+          <select v-model="filterSpecyfika" class="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#051330]/30 focus:border-[#051330] text-gray-600">
+            <option value="">Wszystkie specyfiki szkół</option>
+            <option>brak specyfiki</option>
+            <option>specjalna</option>
+          </select>
+          <select v-model="filterGminaRodzaj" class="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#051330]/30 focus:border-[#051330] text-gray-600">
+            <option value="">Wszystkie rodzaje gmin</option>
+            <option>delegatura</option>
+            <option>dzielnica</option>
+            <option>gmina miejska</option>
+            <option>gmina wiejska</option>
+            <option>miasto</option>
+            <option>obszar wiejski</option>
+          </select>
+          <input v-model="filterPowiat" type="text" placeholder="Filtruj po powiecie..." class="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#051330]/30 focus:border-[#051330]" />
+          <input v-model="filterMiejscowosc" type="text" placeholder="Filtruj po miejscowości..." class="text-sm border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#051330]/30 focus:border-[#051330]" />
         </div>
       </div>
 
