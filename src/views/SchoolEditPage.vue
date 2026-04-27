@@ -144,7 +144,7 @@ function goBack(): void {
       <!-- Dane podstawowe -->
       <div class="bg-white rounded-lg border border-gray-200 p-6 space-y-5">
         <h3 class="font-medium text-gray-800 text-sm border-b border-gray-100 pb-3">Dane podstawowe</h3>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SchoolFormField
             label="Numer RSPO"
             :modelValue="form.numerRspo"
@@ -195,7 +195,7 @@ function goBack(): void {
       <!-- Identyfikatory -->
       <div class="bg-white rounded-lg border border-gray-200 p-6 space-y-5">
         <h3 class="font-medium text-gray-800 text-sm border-b border-gray-100 pb-3">Identyfikatory</h3>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SchoolFormField
             label="NIP"
             :modelValue="form.nip"
@@ -214,7 +214,7 @@ function goBack(): void {
       <!-- Adres -->
       <div class="bg-white rounded-lg border border-gray-200 p-6 space-y-5">
         <h3 class="font-medium text-gray-800 text-sm border-b border-gray-100 pb-3">Adres</h3>
-        <div class="grid grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <SchoolFormField
             label="Województwo"
             :modelValue="form.wojewodztwo"
@@ -275,7 +275,7 @@ function goBack(): void {
       <!-- Kontakt -->
       <div class="bg-white rounded-lg border border-gray-200 p-6 space-y-5">
         <h3 class="font-medium text-gray-800 text-sm border-b border-gray-100 pb-3">Kontakt</h3>
-        <div class="grid grid-cols-3 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <SchoolFormField
             label="Email"
             :modelValue="form.email"
@@ -313,7 +313,7 @@ function goBack(): void {
       <!-- Podmiot prowadzący -->
       <div class="bg-white rounded-lg border border-gray-200 p-6 space-y-5">
         <h3 class="font-medium text-gray-800 text-sm border-b border-gray-100 pb-3">Podmiot prowadzący</h3>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SchoolFormField
             label="Typ podmiotu"
             :modelValue="form.podmiotProwadzacyTyp"
@@ -332,7 +332,7 @@ function goBack(): void {
       <!-- Daty -->
       <div class="bg-white rounded-lg border border-gray-200 p-6 space-y-5">
         <h3 class="font-medium text-gray-800 text-sm border-b border-gray-100 pb-3">Daty</h3>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SchoolFormField
             label="Data rozpoczęcia"
             :modelValue="form.dataRozpoczecia"
@@ -367,7 +367,7 @@ function goBack(): void {
       <!-- Lokalizacja -->
       <div class="bg-white rounded-lg border border-gray-200 p-6 space-y-5">
         <h3 class="font-medium text-gray-800 text-sm border-b border-gray-100 pb-3">Lokalizacja</h3>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SchoolFormField
             label="Szerokość geograficzna (lat)"
             :modelValue="form.geography?.y"
@@ -388,7 +388,7 @@ function goBack(): void {
       </div>
 
       <!-- Akcje -->
-      <div class="flex items-center justify-between">
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <button
           v-if="rspoForm"
           type="button"
@@ -401,7 +401,7 @@ function goBack(): void {
           Przywróć wszystkie wartości z RSPO
         </button>
         <div v-else />
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 sm:justify-end">
           <button
             type="button"
             @click="goBack"
