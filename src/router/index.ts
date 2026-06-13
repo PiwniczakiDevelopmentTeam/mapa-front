@@ -3,6 +3,7 @@ import LoginPage from "@/views/LoginPage.vue";
 import HomePage from "@/views/HomePage.vue";
 import SchoolsPage from "@/views/SchoolsPage.vue";
 import ImportPage from "@/views/ImportPage.vue";
+import AutoSyncPage from "@/views/AutoSyncPage.vue";
 import AuditPage from "@/views/AuditPage.vue";
 import ErrorsPage from "@/views/ErrorsPage.vue";
 import UsersPage from "@/views/UsersPage.vue";
@@ -31,6 +32,12 @@ const routes = [
     path: "/import",
     name: "Import",
     component: ImportPage,
+    meta: { requiresAuth: true },
+  },
+  {
+    path: "/auto-sync",
+    name: "AutoSync",
+    component: AutoSyncPage,
     meta: { requiresAuth: true },
   },
   {
