@@ -46,6 +46,9 @@ const updatingAll = ref(false);
 const updateAllSuccess = ref<string | null>(null);
 const updateAllError = ref<string | null>(null);
 
+const togglingAutoUpdateIds = ref<Set<number>>(new Set());
+const autoUpdateErrorIds = ref<Set<number>>(new Set());
+
 const selectedFieldLabel = computed(
   () => FIELDS.find((f) => f.key === selectedField.value)?.label ?? selectedField.value,
 );
@@ -200,6 +203,24 @@ async function updateSingle(row: Row): Promise<void> {
     updateErrorIds.value = new Set([...updateErrorIds.value, rspoId]);
   } finally {
     updatingIds.value = new Set([...updatingIds.value].filter((id) => id !== rspoId));
+  }
+}
+
+async function toggleAutoUpdate(row: Row): Promise<void> {
+  const rspoId = row.db.numerRspo;
+  const newValue = !(row.db.autoUpdate ?? false);
+  togglingAutoUpdateIds.value = new Set([...togglingAutoUpdateIds.value, rspoId]);
+  autoUpdateErrorIds.value = new Set([...autoUpdateErrorIds.value].filter((id) => id !== rspoId));
+  try {
+    const payload: SchoolDTO = { ...row.db, autoUpdate: newValue };
+    await api.put("/api/Schools/UpdateSingleSchool", payload);
+    row.db.autoUpdate = newValue;
+  } catch {
+    autoUpdateErrorIds.value = new Set([...autoUpdateErrorIds.value, rspoId]);
+  } finally {
+    togglingAutoUpdateIds.value = new Set(
+      [...togglingAutoUpdateIds.value].filter((id) => id !== rspoId),
+    );
   }
 }
 
@@ -397,6 +418,17 @@ fetchPage();
                 </div>
               </div>
             </div>
+            <label class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                :checked="row.db.autoUpdate ?? false"
+                :disabled="togglingAutoUpdateIds.has(row.db.numerRspo)"
+                @change="toggleAutoUpdate(row)"
+                class="rounded border-gray-300 text-[#051330] focus:ring-[#051330]/30 disabled:opacity-50"
+              />
+              <span>Auto-sync z RSPO</span>
+              <span v-if="autoUpdateErrorIds.has(row.db.numerRspo)" class="text-red-500">(błąd)</span>
+            </label>
             <div v-if="row.status === 'loaded' && differs(row, selectedField) && !updatedIds.has(row.db.numerRspo)">
               <button
                 @click="updateSingle(row)"
@@ -430,12 +462,15 @@ fetchPage();
               <th class="text-left px-4 py-3 font-medium text-gray-600 w-44">
                 <span class="text-amber-600">W RSPO</span>
               </th>
+              <th class="text-center px-3 py-3 font-medium text-gray-600 w-24" title="Auto-aktualizacja z RSPO przy synchronizacji">
+                Auto-sync
+              </th>
               <th class="px-4 py-3 w-44"></th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading">
-              <td colspan="5" class="px-4 py-12 text-center">
+              <td colspan="6" class="px-4 py-12 text-center">
                 <div class="flex items-center justify-center gap-2 text-gray-400">
                   <svg class="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
                     <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
@@ -446,7 +481,7 @@ fetchPage();
               </td>
             </tr>
             <tr v-else-if="visibleRows.length === 0">
-              <td colspan="5" class="px-4 py-12 text-center text-gray-400 text-sm">
+              <td colspan="6" class="px-4 py-12 text-center text-gray-400 text-sm">
                 {{ showOnlyDiffs ? "Brak różnic na tej stronie — wszystkie placówki zgodne z RSPO" : "Brak placówek" }}
               </td>
             </tr>
@@ -474,6 +509,18 @@ fetchPage();
                 <span v-else :class="differs(row, selectedField) ? 'text-amber-700 font-medium' : 'text-gray-500'">
                   {{ formatValue(getFieldValue(row.rspo, selectedField)) }}
                 </span>
+              </td>
+              <td class="px-3 py-3 text-center">
+                <label class="inline-flex items-center justify-center cursor-pointer" :title="row.db.autoUpdate ? 'Wyłącz auto-sync z RSPO' : 'Włącz auto-sync z RSPO'">
+                  <input
+                    type="checkbox"
+                    :checked="row.db.autoUpdate ?? false"
+                    :disabled="togglingAutoUpdateIds.has(row.db.numerRspo)"
+                    @change="toggleAutoUpdate(row)"
+                    class="rounded border-gray-300 text-[#051330] focus:ring-[#051330]/30 disabled:opacity-50"
+                  />
+                </label>
+                <div v-if="autoUpdateErrorIds.has(row.db.numerRspo)" class="text-[10px] text-red-500 mt-0.5">błąd</div>
               </td>
               <td class="px-4 py-3">
                 <div class="flex items-center justify-end gap-2">
