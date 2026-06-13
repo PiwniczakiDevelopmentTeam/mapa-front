@@ -32,4 +32,5 @@ export interface School {
   specyfikaSzkoly?: string;
   podmiotProwadzacy?: string;
   podmiotProwadzacyTyp?: string;
+  autoUpdate?: boolean;
 }

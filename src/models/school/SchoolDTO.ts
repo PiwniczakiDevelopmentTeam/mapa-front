@@ -32,4 +32,5 @@ export interface SchoolDTO {
   podmiotProwadzacyTyp?: string;
   podmiotProwadzacyNazwa?: string;
   geography?: GeographyDTO;
+  autoUpdate?: boolean;
 }

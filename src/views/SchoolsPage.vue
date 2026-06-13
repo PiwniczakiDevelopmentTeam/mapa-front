@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import AppLayout from "@/components/layout/AppLayout.vue";
 import MissingSchoolsTab from "@/components/school/MissingSchoolsTab.vue";
 import ObsoleteSchoolsTab from "@/components/school/ObsoleteSchoolsTab.vue";
+import ChangedFieldsTab from "@/components/school/ChangedFieldsTab.vue";
 import api from "@/services/api";
 import type { SchoolDTO } from "@/models/school/SchoolDTO";
 import type { PagedResult } from "@/models/common/PagedResult";
@@ -11,7 +12,7 @@ import type { FilterParams } from "@/models/common/FilterParams";
 
 const router = useRouter();
 
-type Tab = "all" | "missing" | "obsolete";
+type Tab = "all" | "missing" | "obsolete" | "update";
 const activeTab = ref<Tab>("all");
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -167,10 +168,23 @@ fetchSchools();
           <span class="hidden sm:inline">Usuń placówki</span>
           <span class="sm:hidden">Usuń</span>
         </button>
+        <button
+          @click="activeTab = 'update'"
+          :class="[
+            'flex-1 py-3 px-3 text-sm font-medium border-b-2 transition-colors',
+            activeTab === 'update'
+              ? 'border-amber-500 text-amber-700 bg-amber-50'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50',
+          ]"
+        >
+          <span class="hidden sm:inline">Edytuj dane</span>
+          <span class="sm:hidden">Edytuj</span>
+        </button>
       </div>
 
       <MissingSchoolsTab v-if="activeTab === 'missing'" />
       <ObsoleteSchoolsTab v-if="activeTab === 'obsolete'" />
+      <ChangedFieldsTab v-if="activeTab === 'update'" />
 
       <div v-if="activeTab === 'all'" class="space-y-4">
         <div class="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
