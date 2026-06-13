@@ -22,6 +22,7 @@ const form = ref<SchoolDTO>({
   numerRspo: 0,
   nazwa: "",
   geography: { x: 0, y: 0 },
+  autoUpdate: true,
 });
 
 const rspoForm = ref<SchoolDTO | null>(null);
@@ -81,7 +82,9 @@ async function handleSave(): Promise<void> {
 
 function restoreFromRspo(): void {
   if (!rspoForm.value) return;
-  form.value = { ...rspoForm.value };
+  // Preserve auto-sync flag — restoring field values shouldn't flip the sync setting.
+  const currentAutoUpdate = form.value.autoUpdate;
+  form.value = { ...rspoForm.value, autoUpdate: currentAutoUpdate };
   if (!form.value.geography) form.value.geography = { x: 0, y: 0 };
 }
 
@@ -385,6 +388,26 @@ function goBack(): void {
             @update:modelValue="setLng"
           />
         </div>
+      </div>
+
+      <!-- Synchronizacja -->
+      <div class="bg-white rounded-lg border border-gray-200 p-6 space-y-3">
+        <h3 class="font-medium text-gray-800 text-sm border-b border-gray-100 pb-3">Synchronizacja z RSPO</h3>
+        <label class="flex items-start gap-3 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            :checked="form.autoUpdate ?? false"
+            @change="form.autoUpdate = ($event.target as HTMLInputElement).checked"
+            class="mt-0.5 rounded border-gray-300 text-[#051330] focus:ring-[#051330]/30"
+          />
+          <span class="text-sm">
+            <span class="font-medium text-gray-800">Automatyczna aktualizacja z RSPO</span>
+            <span class="block text-gray-500 text-xs mt-0.5">
+              Gdy włączone, ta placówka będzie aktualizowana z RSPO podczas synchronizacji.
+              Wyłącz, aby zachować ręcznie wprowadzone dane.
+            </span>
+          </span>
+        </label>
       </div>
 
       <!-- Akcje -->
