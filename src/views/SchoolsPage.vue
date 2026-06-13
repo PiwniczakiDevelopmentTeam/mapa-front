@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import AppLayout from "@/components/layout/AppLayout.vue";
 import MissingSchoolsTab from "@/components/school/MissingSchoolsTab.vue";
 import ObsoleteSchoolsTab from "@/components/school/ObsoleteSchoolsTab.vue";
+import DiffSchoolsTab from "@/components/school/DiffSchoolsTab.vue";
 import ChangedFieldsTab from "@/components/school/ChangedFieldsTab.vue";
 import api from "@/services/api";
 import type { SchoolDTO } from "@/models/school/SchoolDTO";
@@ -12,7 +13,7 @@ import type { FilterParams } from "@/models/common/FilterParams";
 
 const router = useRouter();
 
-type Tab = "all" | "missing" | "obsolete" | "update";
+type Tab = "all" | "missing" | "obsolete" | "diff" | "update";
 const activeTab = ref<Tab>("all");
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -287,6 +288,18 @@ fetchSchools();
           <span class="sm:hidden">Usuń</span>
         </button>
         <button
+          @click="activeTab = 'diff'"
+          :class="[
+            'flex-1 py-3 px-3 text-sm font-medium border-b-2 transition-colors',
+            activeTab === 'diff'
+              ? 'border-amber-500 text-amber-700 bg-amber-50'
+              : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50',
+          ]"
+        >
+          <span class="hidden sm:inline">Różnice z RSPO</span>
+          <span class="sm:hidden">Różnice</span>
+        </button>
+        <button
           @click="activeTab = 'update'"
           :class="[
             'flex-1 py-3 px-3 text-sm font-medium border-b-2 transition-colors',
@@ -302,6 +315,7 @@ fetchSchools();
 
       <MissingSchoolsTab v-if="activeTab === 'missing'" />
       <ObsoleteSchoolsTab v-if="activeTab === 'obsolete'" />
+      <DiffSchoolsTab v-if="activeTab === 'diff'" />
       <ChangedFieldsTab v-if="activeTab === 'update'" />
 
       <div v-if="activeTab === 'all'" class="space-y-4">
