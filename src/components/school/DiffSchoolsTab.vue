@@ -3,7 +3,7 @@ import { ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
 import api from "@/services/api";
 import type { SchoolDTO } from "@/models/school/SchoolDTO";
-import type { PagedResult } from "@/models/common/PagedResult";
+import Pagination from "@/components/common/Pagination.vue";
 
 const router = useRouter();
 
@@ -43,10 +43,9 @@ interface FieldDiff {
   rspoValue: string | number | null;
 }
 
-interface Row {
+interface DiffRow {
   db: SchoolDTO;
-  rspo: SchoolDTO | null;
-  status: "loading" | "loaded" | "missing-rspo" | "error";
+  rspo: SchoolDTO;
   diffs: FieldDiff[];
 }
 
@@ -57,9 +56,7 @@ const currentPage = ref(1);
 const pageSize = ref(20);
 const loading = ref(false);
 const error = ref<string | null>(null);
-const rows = ref<Row[]>([]);
-const totalCount = ref(0);
-const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)));
+const rawRows = ref<DiffRow[]>([]);
 
 const syncingIds = ref<Set<number>>(new Set());
 const syncedIds = ref<Set<number>>(new Set());
@@ -127,25 +124,28 @@ function formatValue(val: string | number | null): string {
   return String(val);
 }
 
+const totalWithDiffs = computed(
+  () => rawRows.value.filter((r) => r.diffs.length > 0).length,
+);
+
 const visibleRows = computed(() =>
-  rows.value.filter((r) => {
-    // Hide schools with auto-sync explicitly disabled unless user opts in.
+  rawRows.value.filter((r) => {
+    if (r.diffs.length === 0) return false;
     if (!showAutoSyncOff.value && r.db.autoUpdate === false) return false;
-    if (r.status === "loading") return true;
-    return r.diffs.length > 0;
+    return true;
   }),
 );
 
-const diffCountOnPage = computed(
-  () => rows.value.filter((r) => r.status === "loaded" && r.diffs.length > 0).length,
+const pagedItems = computed(() =>
+  visibleRows.value.slice((currentPage.value - 1) * pageSize.value, currentPage.value * pageSize.value),
 );
 
-const stillLoadingOnPage = computed(() => rows.value.some((r) => r.status === "loading"));
+const totalCount = computed(() => visibleRows.value.length);
+const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)));
 
 const syncableRows = computed(() =>
-  rows.value.filter(
+  rawRows.value.filter(
     (r) =>
-      r.status === "loaded" &&
       r.diffs.length > 0 &&
       r.db.autoUpdate !== false &&
       !syncedIds.value.has(r.db.numerRspo),
@@ -153,85 +153,50 @@ const syncableRows = computed(() =>
 );
 
 const lockedCount = computed(
-  () =>
-    rows.value.filter(
-      (r) =>
-        r.status === "loaded" &&
-        r.diffs.length > 0 &&
-        r.db.autoUpdate === false,
-    ).length,
+  () => rawRows.value.filter((r) => r.diffs.length > 0 && r.db.autoUpdate === false).length,
 );
 
-async function fetchComparisonFor(row: Row): Promise<void> {
-  try {
-    const res = await api.get(
-      `/api/Schools/GetSingleSchoolWithChanges?rspoId=${row.db.numerRspo}`,
-    );
-    const body = res.data as
-      | { schoolBeforeChanges?: Record<string, unknown>; schoolsAfterChanges?: Record<string, unknown> }
-      | undefined;
-    // GetSingleSchoolWithChanges constructs ChangedSchool(singleSchool, singleSchoolFromRSPO),
-    // so schoolsAfterChanges = RSPO side.
-    const rspoEntity = body?.schoolsAfterChanges;
-    if (!rspoEntity) {
-      row.status = "missing-rspo";
-      return;
-    }
-    row.rspo = entityToDto(rspoEntity);
-    row.diffs = computeDiffs(row.db, row.rspo);
-    row.status = "loaded";
-  } catch (e) {
-    const status = (e as { response?: { status?: number } }).response?.status;
-    if (status === 404 || status === 500) {
-      row.status = "missing-rspo";
-    } else {
-      row.status = "error";
-    }
-  }
-}
-
-async function fetchPage(): Promise<void> {
+async function fetchAll(): Promise<void> {
   loading.value = true;
   error.value = null;
   syncedIds.value = new Set();
   syncErrorIds.value = new Set();
   syncAllSuccess.value = null;
   syncAllError.value = null;
-  rows.value = [];
+  rawRows.value = [];
 
   try {
-    const res = await api.post<PagedResult<SchoolDTO>>(
-      `/api/Schools/GetSchoolPage?size=${pageSize.value}&pageNumber=${currentPage.value}`,
-      [],
-    );
-    const items = unwrapValues<Record<string, unknown>>(res.data.items);
-    totalCount.value = res.data.totalCount ?? 0;
+    const res = await api.get("/api/Schools/GetChanges?size=999999&page=1");
+    const body = res.data as { changedSchools?: unknown } | undefined;
+    const rawChanges = unwrapValues<{
+      schoolBeforeChanges?: Record<string, unknown>;
+      schoolsAfterChanges?: Record<string, unknown>;
+    }>(body?.changedSchools);
 
-    rows.value = items.map<Row>((entity) => ({
-      db: entityToDto(entity),
-      rspo: null,
-      status: "loading",
-      diffs: [],
-    }));
-
-    await Promise.all(rows.value.map((r) => fetchComparisonFor(r)));
-  } catch (e) {
-    const status = (e as { response?: { status?: number } }).response?.status;
-    if (status === 404) {
-      totalCount.value = 0;
-      rows.value = [];
-    } else {
-      error.value = "Nie udało się pobrać listy placówek.";
-      rows.value = [];
-    }
+    // GetChangedSchoolsList constructs ChangedSchool(archived, current),
+    // so schoolBeforeChanges = RSPO mirror, schoolsAfterChanges = our DB.
+    rawRows.value = rawChanges
+      .map<DiffRow | null>((c) => {
+        const rspoEntity = c.schoolBeforeChanges;
+        const dbEntity = c.schoolsAfterChanges;
+        if (!rspoEntity || !dbEntity) return null;
+        const db = entityToDto(dbEntity);
+        const rspo = entityToDto(rspoEntity);
+        return { db, rspo, diffs: computeDiffs(db, rspo) };
+      })
+      .filter((x): x is DiffRow => x !== null);
+    currentPage.value = 1;
+  } catch {
+    error.value = "Nie udało się pobrać listy placówek.";
+    rawRows.value = [];
   } finally {
     loading.value = false;
   }
 }
 
-async function syncFromRspo(row: Row): Promise<void> {
-  if (!row.rspo || row.diffs.length === 0) return;
-  if (row.db.autoUpdate === false) return; // auto-sync disabled for this school
+async function syncFromRspo(row: DiffRow): Promise<void> {
+  if (row.diffs.length === 0) return;
+  if (row.db.autoUpdate === false) return;
   const rspoId = row.db.numerRspo;
   syncingIds.value = new Set([...syncingIds.value, rspoId]);
   syncErrorIds.value = new Set([...syncErrorIds.value].filter((id) => id !== rspoId));
@@ -251,7 +216,7 @@ async function syncFromRspo(row: Row): Promise<void> {
   }
 }
 
-async function syncAllOnPage(): Promise<void> {
+async function syncAll(): Promise<void> {
   const targets = syncableRows.value;
   if (!targets.length) return;
 
@@ -286,11 +251,10 @@ async function syncAllOnPage(): Promise<void> {
 
 watch(pageSize, () => {
   currentPage.value = 1;
-  fetchPage();
 });
 
-watch(currentPage, () => {
-  fetchPage();
+watch(showAutoSyncOff, () => {
+  currentPage.value = 1;
 });
 
 function goToPage(page: number): void {
@@ -302,7 +266,7 @@ function goToEdit(rspoId: number): void {
   router.push(`/placowki/${rspoId}/edytuj`);
 }
 
-fetchPage();
+fetchAll();
 </script>
 
 <template>
@@ -312,7 +276,7 @@ fetchPage();
       <p class="text-sm text-gray-500">
         Placówki, w których jakiekolwiek pole różni się od danych w RSPO.
       </p>
-      <div class="flex flex-wrap items-center gap-3">
+      <div v-if="!loading" class="flex flex-wrap items-center gap-3">
         <label class="inline-flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
           <input
             v-model="showAutoSyncOff"
@@ -322,6 +286,17 @@ fetchPage();
           <span>Pokaż z wyłączonym auto-sync</span>
           <span v-if="lockedCount > 0" class="text-xs text-gray-400">({{ lockedCount }})</span>
         </label>
+        <button
+          @click="fetchAll"
+          :disabled="loading"
+          class="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 disabled:opacity-50"
+          title="Odśwież dane z serwera"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Odśwież
+        </button>
         <span class="text-gray-300 hidden sm:inline">|</span>
         <span class="text-sm text-gray-500 hidden sm:inline">Wierszy:</span>
         <select
@@ -332,10 +307,10 @@ fetchPage();
           <option v-for="opt in PAGE_SIZE_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
         </select>
         <button
-          @click="syncAllOnPage"
-          :disabled="syncingAll || stillLoadingOnPage || syncableRows.length === 0"
+          @click="syncAll"
+          :disabled="syncingAll || syncableRows.length === 0"
           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-          :title="stillLoadingOnPage ? 'Trwa pobieranie porównań' : (syncableRows.length === 0 ? 'Brak placówek do synchronizacji' : 'Nadpisz różniące się pola wartościami z RSPO dla wszystkich placówek na tej stronie, które mają włączony auto-sync')"
+          :title="syncableRows.length === 0 ? 'Brak placówek do synchronizacji' : 'Nadpisz różniące się pola wartościami z RSPO dla wszystkich placówek z włączonym auto-sync'"
         >
           <svg v-if="syncingAll" class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
@@ -344,22 +319,22 @@ fetchPage();
           <svg v-else class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          {{ syncingAll ? "Synchronizowanie..." : `Synchronizuj ${syncableRows.length} na stronie` }}
+          {{ syncingAll ? "Synchronizowanie..." : `Synchronizuj ${syncableRows.length}` }}
         </button>
       </div>
     </div>
 
     <!-- Info banner -->
     <div
-      v-if="!loading && totalCount > 0"
+      v-if="!loading && totalWithDiffs > 0"
       class="flex items-start gap-2 px-4 py-2.5 bg-gray-50 border border-gray-200 text-gray-600 text-xs rounded-lg"
     >
       <svg class="w-4 h-4 shrink-0 mt-0.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
       <span>
-        Strona przegląda wszystkie {{ totalCount.toLocaleString("pl-PL") }} placówek.
-        Na tej stronie <strong>{{ diffCountOnPage }}</strong> ma różnice względem RSPO.
+        <strong>{{ totalWithDiffs.toLocaleString("pl-PL") }}</strong>
+        {{ totalWithDiffs === 1 ? "placówka różni się" : "placówek różni się" }} od RSPO.
         <template v-if="lockedCount > 0 && !showAutoSyncOff">
           <strong>{{ lockedCount }}</strong>
           {{ lockedCount === 1 ? "z nich ma wyłączony auto-sync i jest ukryta" : "z nich ma wyłączony auto-sync i są ukryte" }}
@@ -409,13 +384,14 @@ fetchPage();
         </div>
       </div>
 
-      <div v-else-if="visibleRows.length === 0 && !stillLoadingOnPage" class="px-4 py-12 text-center text-gray-400 text-sm">
-        Brak różnic na tej stronie — wszystkie placówki zgodne z RSPO
+      <div v-else-if="pagedItems.length === 0" class="px-4 py-12 text-center text-gray-400 text-sm">
+        <template v-if="totalWithDiffs === 0">Brak różnic — wszystkie placówki zgodne z RSPO</template>
+        <template v-else>Brak placówek do pokazania — sprawdź filtry</template>
       </div>
 
       <div v-else class="divide-y divide-gray-100">
         <div
-          v-for="row in visibleRows"
+          v-for="row in pagedItems"
           :key="row.db.numerRspo"
           class="px-4 py-4"
           :class="syncedIds.has(row.db.numerRspo) ? 'opacity-50' : ''"
@@ -426,7 +402,7 @@ fetchPage();
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="font-mono text-xs text-gray-400">{{ row.db.numerRspo }}</span>
                 <span
-                  v-if="row.status === 'loaded' && row.diffs.length > 0"
+                  v-if="row.diffs.length > 0"
                   class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700"
                 >
                   {{ row.diffs.length }} {{ row.diffs.length === 1 ? "różnica" : row.diffs.length < 5 ? "różnice" : "różnic" }}
@@ -441,9 +417,6 @@ fetchPage();
                   </svg>
                   Auto-sync off
                 </span>
-                <span v-if="row.status === 'loading'" class="text-xs text-gray-400 italic">wczytywanie...</span>
-                <span v-else-if="row.status === 'missing-rspo'" class="text-xs text-gray-400 italic">brak w RSPO</span>
-                <span v-else-if="row.status === 'error'" class="text-xs text-red-500 italic">błąd wczytywania</span>
               </div>
               <div class="font-medium text-sm text-gray-800 mt-0.5 break-words">{{ row.db.nazwa }}</div>
               <div class="text-xs text-gray-400 mt-0.5">
@@ -464,7 +437,7 @@ fetchPage();
                 Edytuj
               </button>
               <button
-                v-if="row.status === 'loaded' && row.diffs.length > 0 && !syncedIds.has(row.db.numerRspo)"
+                v-if="row.diffs.length > 0 && !syncedIds.has(row.db.numerRspo)"
                 @click="syncFromRspo(row)"
                 :disabled="syncingIds.has(row.db.numerRspo) || row.db.autoUpdate === false"
                 class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
@@ -484,7 +457,7 @@ fetchPage();
 
           <!-- Diff details -->
           <div
-            v-if="row.status === 'loaded' && row.diffs.length > 0"
+            v-if="row.diffs.length > 0"
             class="mt-3 ml-0 sm:ml-2 grid grid-cols-1 gap-1.5"
           >
             <div
@@ -505,27 +478,8 @@ fetchPage();
         </div>
       </div>
 
-      <div
-        v-if="!loading && totalPages > 1"
-        class="flex items-center justify-between px-4 py-3 border-t border-gray-100"
-      >
-        <span class="text-xs text-gray-500">Strona {{ currentPage }} z {{ totalPages }}</span>
-        <div class="flex items-center gap-1">
-          <button
-            @click="goToPage(currentPage - 1)"
-            :disabled="currentPage === 1"
-            class="px-3 py-1.5 text-xs rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            Poprzednia
-          </button>
-          <button
-            @click="goToPage(currentPage + 1)"
-            :disabled="currentPage === totalPages"
-            class="px-3 py-1.5 text-xs rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            Następna
-          </button>
-        </div>
+      <div v-if="!loading && totalPages > 1" class="px-4 py-3 border-t border-gray-100">
+        <Pagination :current-page="currentPage" :total-pages="totalPages" @change="goToPage" />
       </div>
     </div>
   </div>

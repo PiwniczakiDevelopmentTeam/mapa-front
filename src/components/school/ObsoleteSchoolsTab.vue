@@ -2,6 +2,7 @@
 import { ref, onMounted } from "vue";
 import api from "@/services/api";
 import type { SchoolDTO } from "@/models/school/SchoolDTO";
+import Pagination from "@/components/common/Pagination.vue";
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
@@ -307,27 +308,8 @@ onMounted(fetchObsolete);
         </table>
       </div>
 
-      <div
-        v-if="!loading && totalPages > 1"
-        class="flex items-center justify-between px-4 py-3 border-t border-gray-100"
-      >
-        <span class="text-xs text-gray-500">Strona {{ currentPage }} z {{ totalPages }}</span>
-        <div class="flex items-center gap-1">
-          <button
-            @click="goToPage(currentPage - 1)"
-            :disabled="currentPage === 1"
-            class="px-3 py-1.5 text-xs rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            Poprzednia
-          </button>
-          <button
-            @click="goToPage(currentPage + 1)"
-            :disabled="currentPage === totalPages"
-            class="px-3 py-1.5 text-xs rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            Następna
-          </button>
-        </div>
+      <div v-if="!loading && totalPages > 1" class="px-4 py-3 border-t border-gray-100">
+        <Pagination :current-page="currentPage" :total-pages="totalPages" @change="goToPage" />
       </div>
     </div>
   </div>

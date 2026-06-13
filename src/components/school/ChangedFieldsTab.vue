@@ -2,7 +2,7 @@
 import { ref, computed, watch } from "vue";
 import api from "@/services/api";
 import type { SchoolDTO } from "@/models/school/SchoolDTO";
-import type { PagedResult } from "@/models/common/PagedResult";
+import Pagination from "@/components/common/Pagination.vue";
 
 const FIELDS = [
   { key: "liczbaUczniow", label: "Liczba uczniów" },
@@ -20,28 +20,24 @@ const FIELDS = [
 
 type FieldKey = (typeof FIELDS)[number]["key"];
 
-interface Row {
-  db: SchoolDTO;
-  rspo: SchoolDTO | null;
-  status: "loading" | "loaded" | "missing-rspo" | "error";
+interface SchoolFieldDiff {
+  school: SchoolDTO;     // our DB version
+  rspoSchool: SchoolDTO; // RSPO mirror version
 }
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
 
 const selectedField = ref<FieldKey>("liczbaUczniow");
-const showOnlyDiffs = ref(true);
+const rawDiffs = ref<SchoolFieldDiff[]>([]);
 const currentPage = ref(1);
 const pageSize = ref(20);
 const loading = ref(false);
 const error = ref<string | null>(null);
 
-const rows = ref<Row[]>([]);
-const totalCount = ref(0);
-const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)));
-
 const updatingIds = ref<Set<number>>(new Set());
 const updatedIds = ref<Set<number>>(new Set());
 const updateErrorIds = ref<Set<number>>(new Set());
+
 const updatingAll = ref(false);
 const updateAllSuccess = ref<string | null>(null);
 const updateAllError = ref<string | null>(null);
@@ -89,9 +85,8 @@ function normalize(val: unknown): string {
   return String(val);
 }
 
-function differs(row: Row, field: FieldKey): boolean {
-  if (!row.rspo) return false;
-  return normalize(getFieldValue(row.db, field)) !== normalize(getFieldValue(row.rspo, field));
+function differs(diff: SchoolFieldDiff, field: FieldKey): boolean {
+  return normalize(getFieldValue(diff.school, field)) !== normalize(getFieldValue(diff.rspoSchool, field));
 }
 
 function getFieldValue(obj: SchoolDTO | null, field: FieldKey): string | number | null {
@@ -106,98 +101,67 @@ function formatValue(val: string | number | null): string {
   return String(val);
 }
 
-const visibleRows = computed(() => {
-  if (!showOnlyDiffs.value) return rows.value;
-  return rows.value.filter((r) => r.status === "loading" || differs(r, selectedField.value));
-});
-
-const diffCountOnPage = computed(
-  () => rows.value.filter((r) => r.status === "loaded" && differs(r, selectedField.value)).length,
+const filteredDiffs = computed(() =>
+  rawDiffs.value.filter((d) => differs(d, selectedField.value)),
 );
-const stillLoadingOnPage = computed(() => rows.value.some((r) => r.status === "loading"));
+const totalCount = computed(() => filteredDiffs.value.length);
+const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / pageSize.value)));
+const pagedItems = computed(() =>
+  filteredDiffs.value.slice((currentPage.value - 1) * pageSize.value, currentPage.value * pageSize.value),
+);
 
-async function fetchComparisonFor(row: Row): Promise<void> {
-  try {
-    const res = await api.get(
-      `/api/Schools/GetSingleSchoolWithChanges?rspoId=${row.db.numerRspo}`,
-    );
-    const body = res.data as
-      | { schoolBeforeChanges?: Record<string, unknown>; schoolsAfterChanges?: Record<string, unknown> }
-      | undefined;
-    // GetSingleSchoolWithChanges constructs ChangedSchool(singleSchool, singleSchoolFromRSPO),
-    // so schoolBeforeChanges = our DB, schoolsAfterChanges = RSPO.
-    const rspoEntity = body?.schoolsAfterChanges;
-    if (!rspoEntity) {
-      row.status = "missing-rspo";
-      return;
-    }
-    row.rspo = entityToDto(rspoEntity);
-    row.status = "loaded";
-  } catch (e) {
-    const status = (e as { response?: { status?: number } }).response?.status;
-    if (status === 404 || status === 500) {
-      // Service throws SchoolServiceException when the RSPO mirror has no matching school,
-      // which the controller surfaces as 500. Treat both as "no RSPO data".
-      row.status = "missing-rspo";
-    } else {
-      row.status = "error";
-    }
-  }
-}
+const pendingCount = computed(
+  () => filteredDiffs.value.filter((d) => !updatedIds.value.has(d.school.numerRspo)).length,
+);
 
-async function fetchPage(): Promise<void> {
+async function fetchAll(): Promise<void> {
   loading.value = true;
   error.value = null;
   updatedIds.value = new Set();
   updateErrorIds.value = new Set();
   updateAllSuccess.value = null;
   updateAllError.value = null;
-  rows.value = [];
-
   try {
-    const res = await api.post<PagedResult<SchoolDTO>>(
-      `/api/Schools/GetSchoolPage?size=${pageSize.value}&pageNumber=${currentPage.value}`,
-      [],
-    );
-    const items = unwrapValues<Record<string, unknown>>(res.data.items);
-    totalCount.value = res.data.totalCount ?? 0;
+    // GetChanges has a paging bug — returns the full list regardless of size/page.
+    // For our use case (need global counts), this is exactly what we want.
+    const res = await api.get("/api/Schools/GetChanges?size=999999&page=1");
+    const body = res.data as { changedSchools?: unknown } | undefined;
+    const rawChanges = unwrapValues<{
+      schoolBeforeChanges?: Record<string, unknown>;
+      schoolsAfterChanges?: Record<string, unknown>;
+    }>(body?.changedSchools);
 
-    rows.value = items.map<Row>((entity) => ({
-      db: entityToDto(entity),
-      rspo: null,
-      status: "loading",
-    }));
-
-    // Fetch RSPO comparison for each row in parallel.
-    await Promise.all(rows.value.map((r) => fetchComparisonFor(r)));
-  } catch (e) {
-    const status = (e as { response?: { status?: number } }).response?.status;
-    if (status === 404) {
-      totalCount.value = 0;
-      rows.value = [];
-    } else {
-      error.value = "Nie udało się pobrać listy placówek.";
-      rows.value = [];
-    }
+    // In GetChangedSchoolsList the constructor is new ChangedSchool(archived, current),
+    // so schoolBeforeChanges = RSPO mirror, schoolsAfterChanges = our DB.
+    rawDiffs.value = rawChanges
+      .map<SchoolFieldDiff | null>((c) => {
+        const rspoEntity = c.schoolBeforeChanges;
+        const dbEntity = c.schoolsAfterChanges;
+        if (!rspoEntity || !dbEntity) return null;
+        return {
+          school: entityToDto(dbEntity),
+          rspoSchool: entityToDto(rspoEntity),
+        };
+      })
+      .filter((x): x is SchoolFieldDiff => x !== null);
+    currentPage.value = 1;
+  } catch {
+    error.value = "Nie udało się pobrać listy placówek.";
+    rawDiffs.value = [];
   } finally {
     loading.value = false;
   }
 }
 
-async function updateSingle(row: Row): Promise<void> {
-  if (!row.rspo) return;
-  const rspoId = row.db.numerRspo;
+async function updateSingle(diff: SchoolFieldDiff): Promise<void> {
+  const rspoId = diff.school.numerRspo;
   updatingIds.value = new Set([...updatingIds.value, rspoId]);
   updateErrorIds.value = new Set([...updateErrorIds.value].filter((id) => id !== rspoId));
   try {
-    const rspoVal = getFieldValue(row.rspo, selectedField.value);
-    const payload: SchoolDTO & Record<string, unknown> = {
-      ...row.db,
-      [selectedField.value]: rspoVal,
-    };
+    const rspoVal = getFieldValue(diff.rspoSchool, selectedField.value);
+    const payload: SchoolDTO = { ...diff.school, [selectedField.value]: rspoVal } as SchoolDTO;
     await api.put("/api/Schools/UpdateSingleSchool", payload);
-    // Reflect the new value locally so the diff disappears.
-    (row.db as unknown as Record<string, unknown>)[selectedField.value] = rspoVal;
+    (diff.school as unknown as Record<string, unknown>)[selectedField.value] = rspoVal;
     updatedIds.value = new Set([...updatedIds.value, rspoId]);
   } catch {
     updateErrorIds.value = new Set([...updateErrorIds.value, rspoId]);
@@ -206,15 +170,41 @@ async function updateSingle(row: Row): Promise<void> {
   }
 }
 
-async function toggleAutoUpdate(row: Row): Promise<void> {
-  const rspoId = row.db.numerRspo;
-  const newValue = !(row.db.autoUpdate ?? false);
+async function updateAll(): Promise<void> {
+  const pending = filteredDiffs.value.filter((d) => !updatedIds.value.has(d.school.numerRspo));
+  if (!pending.length) return;
+
+  updatingAll.value = true;
+  updateAllSuccess.value = null;
+  updateAllError.value = null;
+  try {
+    const payload: SchoolDTO[] = pending.map((d) => ({
+      ...d.school,
+      [selectedField.value]: getFieldValue(d.rspoSchool, selectedField.value),
+    } as SchoolDTO));
+    await api.put("/api/Schools/UpdateManySchools", payload);
+    pending.forEach((d) => {
+      const rspoVal = getFieldValue(d.rspoSchool, selectedField.value);
+      (d.school as unknown as Record<string, unknown>)[selectedField.value] = rspoVal;
+      updatedIds.value = new Set([...updatedIds.value, d.school.numerRspo]);
+    });
+    updateAllSuccess.value = `Zaktualizowano ${pending.length.toLocaleString("pl-PL")} placówek.`;
+  } catch {
+    updateAllError.value = "Nie udało się zaktualizować wszystkich placówek.";
+  } finally {
+    updatingAll.value = false;
+  }
+}
+
+async function toggleAutoUpdate(diff: SchoolFieldDiff): Promise<void> {
+  const rspoId = diff.school.numerRspo;
+  const newValue = !(diff.school.autoUpdate ?? false);
   togglingAutoUpdateIds.value = new Set([...togglingAutoUpdateIds.value, rspoId]);
   autoUpdateErrorIds.value = new Set([...autoUpdateErrorIds.value].filter((id) => id !== rspoId));
   try {
-    const payload: SchoolDTO = { ...row.db, autoUpdate: newValue };
+    const payload: SchoolDTO = { ...diff.school, autoUpdate: newValue };
     await api.put("/api/Schools/UpdateSingleSchool", payload);
-    row.db.autoUpdate = newValue;
+    diff.school.autoUpdate = newValue;
   } catch {
     autoUpdateErrorIds.value = new Set([...autoUpdateErrorIds.value, rspoId]);
   } finally {
@@ -224,52 +214,16 @@ async function toggleAutoUpdate(row: Row): Promise<void> {
   }
 }
 
-async function updateAllOnPage(): Promise<void> {
-  const pending = rows.value.filter(
-    (r) =>
-      r.status === "loaded" &&
-      differs(r, selectedField.value) &&
-      !updatedIds.value.has(r.db.numerRspo),
-  );
-  if (!pending.length) return;
-
-  updatingAll.value = true;
-  updateAllSuccess.value = null;
-  updateAllError.value = null;
-  try {
-    const payload: SchoolDTO[] = pending.map((r) => ({
-      ...r.db,
-      [selectedField.value]: getFieldValue(r.rspo, selectedField.value),
-    }));
-    await api.put("/api/Schools/UpdateManySchools", payload);
-    pending.forEach((r) => {
-      const rspoVal = getFieldValue(r.rspo, selectedField.value);
-      (r.db as unknown as Record<string, unknown>)[selectedField.value] = rspoVal;
-      updatedIds.value = new Set([...updatedIds.value, r.db.numerRspo]);
-    });
-    updateAllSuccess.value = `Zaktualizowano ${pending.length.toLocaleString("pl-PL")} placówek na tej stronie.`;
-  } catch {
-    updateAllError.value = "Nie udało się zaktualizować placówek.";
-  } finally {
-    updatingAll.value = false;
-  }
-}
-
-watch(pageSize, () => {
-  currentPage.value = 1;
-  fetchPage();
-});
-
-watch(currentPage, () => {
-  fetchPage();
-});
-
 watch(selectedField, () => {
-  // No re-fetch needed: we have both sides cached. Just clear update state.
+  currentPage.value = 1;
   updatedIds.value = new Set();
   updateErrorIds.value = new Set();
   updateAllSuccess.value = null;
   updateAllError.value = null;
+});
+
+watch(pageSize, () => {
+  currentPage.value = 1;
 });
 
 function goToPage(page: number): void {
@@ -277,7 +231,7 @@ function goToPage(page: number): void {
   currentPage.value = page;
 }
 
-fetchPage();
+fetchAll();
 </script>
 
 <template>
@@ -294,11 +248,18 @@ fetchPage();
         </select>
       </div>
 
-      <div class="flex flex-wrap items-center gap-3">
-        <label class="inline-flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
-          <input v-model="showOnlyDiffs" type="checkbox" class="rounded border-gray-300 text-[#051330] focus:ring-[#051330]/30" />
-          Pokaż tylko różnice
-        </label>
+      <div v-if="!loading" class="flex flex-wrap items-center gap-3">
+        <button
+          @click="fetchAll"
+          :disabled="loading"
+          class="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 disabled:opacity-50"
+          title="Odśwież dane z serwera"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
+          Odśwież
+        </button>
         <span class="text-gray-300 hidden sm:inline">|</span>
         <span class="text-sm text-gray-500 hidden sm:inline">Wierszy:</span>
         <select
@@ -309,10 +270,10 @@ fetchPage();
           <option v-for="opt in PAGE_SIZE_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
         </select>
         <button
-          @click="updateAllOnPage"
-          :disabled="updatingAll || stillLoadingOnPage || diffCountOnPage === 0"
+          v-if="totalCount > 0"
+          @click="updateAll"
+          :disabled="updatingAll || pendingCount === 0"
           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-          :title="stillLoadingOnPage ? 'Trwa pobieranie porównań' : ''"
         >
           <svg v-if="updatingAll" class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
@@ -324,7 +285,7 @@ fetchPage();
           {{
             updatingAll
               ? "Aktualizowanie..."
-              : `Zmień „${selectedFieldLabel}" w ${diffCountOnPage} placówkach`
+              : `Zmień „${selectedFieldLabel}" w ${pendingCount} placówkach`
           }}
         </button>
       </div>
@@ -339,10 +300,9 @@ fetchPage();
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
       <span>
-        Lista paginowana po wszystkich {{ totalCount.toLocaleString("pl-PL") }} placówkach. Na tej stronie
-        <strong>{{ diffCountOnPage }}</strong> placówek różni się polem „{{ selectedFieldLabel }}" od RSPO.
-        Przycisk po prawej zmieni wartości w tych {{ diffCountOnPage }} placówkach. Przejdź na kolejne strony,
-        aby zaktualizować pozostałe.
+        <strong>{{ totalCount.toLocaleString("pl-PL") }}</strong>
+        {{ totalCount === 1 ? "placówka różni się" : "placówek różni się" }} polem „{{ selectedFieldLabel }}" od RSPO.
+        Przycisk po prawej zmieni wartości we wszystkich z nich naraz.
       </span>
     </div>
 
@@ -383,59 +343,56 @@ fetchPage();
             <span class="text-sm">Ładowanie...</span>
           </div>
         </div>
-        <div v-else-if="visibleRows.length === 0" class="px-4 py-12 text-center text-gray-400 text-sm">
-          {{ showOnlyDiffs ? "Brak różnic na tej stronie" : "Brak placówek" }}
+        <div v-else-if="pagedItems.length === 0" class="px-4 py-12 text-center text-gray-400 text-sm">
+          Brak różnic — wszystkie placówki zgodne z RSPO dla pola „{{ selectedFieldLabel }}"
         </div>
         <div v-else class="divide-y divide-gray-100">
           <div
-            v-for="row in visibleRows"
-            :key="row.db.numerRspo"
+            v-for="diff in pagedItems"
+            :key="diff.school.numerRspo"
             class="p-4 space-y-2"
-            :class="updatedIds.has(row.db.numerRspo) ? 'opacity-50' : ''"
+            :class="updatedIds.has(diff.school.numerRspo) ? 'opacity-50' : ''"
           >
             <div class="flex items-start justify-between gap-2">
               <div class="min-w-0 flex-1">
-                <div class="font-medium text-sm text-gray-800 leading-snug">{{ row.db.nazwa }}</div>
-                <div class="text-xs font-mono text-gray-400 mt-0.5">{{ row.db.numerRspo }}</div>
+                <div class="font-medium text-sm text-gray-800 leading-snug">{{ diff.school.nazwa }}</div>
+                <div class="text-xs font-mono text-gray-400 mt-0.5">{{ diff.school.numerRspo }}</div>
               </div>
-              <span v-if="updatedIds.has(row.db.numerRspo)" class="shrink-0 text-xs text-emerald-600 font-medium">Zaktualizowano</span>
-              <span v-else-if="updateErrorIds.has(row.db.numerRspo)" class="shrink-0 text-xs text-red-500">Błąd zapisu</span>
-              <span v-else-if="row.status === 'loading'" class="shrink-0 text-xs text-gray-400">Wczytywanie...</span>
-              <span v-else-if="row.status === 'missing-rspo'" class="shrink-0 text-xs text-gray-400">Brak w RSPO</span>
-              <span v-else-if="row.status === 'error'" class="shrink-0 text-xs text-red-500">Błąd RSPO</span>
+              <span v-if="updatedIds.has(diff.school.numerRspo)" class="shrink-0 text-xs text-emerald-600 font-medium">Zaktualizowano</span>
+              <span v-else-if="updateErrorIds.has(diff.school.numerRspo)" class="shrink-0 text-xs text-red-500">Błąd zapisu</span>
             </div>
-            <div v-if="row.status === 'loaded'" class="grid grid-cols-2 gap-2 text-xs">
+            <div class="grid grid-cols-2 gap-2 text-xs">
               <div class="rounded bg-gray-50 px-2 py-1.5">
                 <div class="text-gray-400 mb-0.5">W bazie</div>
                 <div class="font-medium text-gray-700 break-all">
-                  {{ formatValue(getFieldValue(row.db, selectedField)) }}
+                  {{ formatValue(getFieldValue(diff.school, selectedField)) }}
                 </div>
               </div>
-              <div class="rounded px-2 py-1.5" :class="differs(row, selectedField) ? 'bg-amber-50' : 'bg-gray-50'">
-                <div :class="differs(row, selectedField) ? 'text-amber-600' : 'text-gray-400'" class="mb-0.5">W RSPO</div>
-                <div class="font-medium break-all" :class="differs(row, selectedField) ? 'text-amber-800' : 'text-gray-700'">
-                  {{ formatValue(getFieldValue(row.rspo, selectedField)) }}
+              <div class="rounded bg-amber-50 px-2 py-1.5">
+                <div class="text-amber-600 mb-0.5">W RSPO</div>
+                <div class="font-medium text-amber-800 break-all">
+                  {{ formatValue(getFieldValue(diff.rspoSchool, selectedField)) }}
                 </div>
               </div>
             </div>
             <label class="flex items-center gap-2 text-xs text-gray-600 cursor-pointer select-none">
               <input
                 type="checkbox"
-                :checked="row.db.autoUpdate ?? false"
-                :disabled="togglingAutoUpdateIds.has(row.db.numerRspo)"
-                @change="toggleAutoUpdate(row)"
+                :checked="diff.school.autoUpdate ?? false"
+                :disabled="togglingAutoUpdateIds.has(diff.school.numerRspo)"
+                @change="toggleAutoUpdate(diff)"
                 class="rounded border-gray-300 text-[#051330] focus:ring-[#051330]/30 disabled:opacity-50"
               />
               <span>Auto-sync z RSPO</span>
-              <span v-if="autoUpdateErrorIds.has(row.db.numerRspo)" class="text-red-500">(błąd)</span>
+              <span v-if="autoUpdateErrorIds.has(diff.school.numerRspo)" class="text-red-500">(błąd)</span>
             </label>
-            <div v-if="row.status === 'loaded' && differs(row, selectedField) && !updatedIds.has(row.db.numerRspo)">
+            <div v-if="!updatedIds.has(diff.school.numerRspo)">
               <button
-                @click="updateSingle(row)"
-                :disabled="updatingIds.has(row.db.numerRspo)"
+                @click="updateSingle(diff)"
+                :disabled="updatingIds.has(diff.school.numerRspo)"
                 class="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium text-white bg-[#051330] hover:bg-[#072244] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
               >
-                <svg v-if="updatingIds.has(row.db.numerRspo)" class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                <svg v-if="updatingIds.has(diff.school.numerRspo)" class="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
                   <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                   <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                 </svg>
@@ -480,59 +437,56 @@ fetchPage();
                 </div>
               </td>
             </tr>
-            <tr v-else-if="visibleRows.length === 0">
+            <tr v-else-if="pagedItems.length === 0">
               <td colspan="6" class="px-4 py-12 text-center text-gray-400 text-sm">
-                {{ showOnlyDiffs ? "Brak różnic na tej stronie — wszystkie placówki zgodne z RSPO" : "Brak placówek" }}
+                Brak różnic — wszystkie placówki zgodne z RSPO dla pola „{{ selectedFieldLabel }}"
               </td>
             </tr>
             <tr
               v-else
-              v-for="row in visibleRows"
-              :key="row.db.numerRspo"
+              v-for="diff in pagedItems"
+              :key="diff.school.numerRspo"
               class="border-b border-gray-50 hover:bg-gray-50 transition-colors"
-              :class="updatedIds.has(row.db.numerRspo) ? 'opacity-50' : ''"
+              :class="updatedIds.has(diff.school.numerRspo) ? 'opacity-50' : ''"
             >
-              <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ row.db.numerRspo }}</td>
+              <td class="px-4 py-3 text-gray-500 font-mono text-xs">{{ diff.school.numerRspo }}</td>
               <td class="px-4 py-3">
-                <div class="font-medium text-gray-800">{{ row.db.nazwa }}</div>
+                <div class="font-medium text-gray-800">{{ diff.school.nazwa }}</div>
                 <div class="text-xs text-gray-400 mt-0.5">
-                  {{ [row.db.miejscowosc, row.db.powiat].filter(Boolean).join(", ") || "—" }}
+                  {{ [diff.school.miejscowosc, diff.school.powiat].filter(Boolean).join(", ") || "—" }}
                 </div>
               </td>
               <td class="px-4 py-3 text-gray-600 text-sm break-all">
-                {{ formatValue(getFieldValue(row.db, selectedField)) }}
+                {{ formatValue(getFieldValue(diff.school, selectedField)) }}
               </td>
               <td class="px-4 py-3 text-sm break-all">
-                <span v-if="row.status === 'loading'" class="text-gray-400 italic">wczytywanie...</span>
-                <span v-else-if="row.status === 'missing-rspo'" class="text-gray-400 italic">brak w RSPO</span>
-                <span v-else-if="row.status === 'error'" class="text-red-500 italic">błąd</span>
-                <span v-else :class="differs(row, selectedField) ? 'text-amber-700 font-medium' : 'text-gray-500'">
-                  {{ formatValue(getFieldValue(row.rspo, selectedField)) }}
+                <span class="text-amber-700 font-medium">
+                  {{ formatValue(getFieldValue(diff.rspoSchool, selectedField)) }}
                 </span>
               </td>
               <td class="px-3 py-3 text-center">
-                <label class="inline-flex items-center justify-center cursor-pointer" :title="row.db.autoUpdate ? 'Wyłącz auto-sync z RSPO' : 'Włącz auto-sync z RSPO'">
+                <label class="inline-flex items-center justify-center cursor-pointer" :title="diff.school.autoUpdate ? 'Wyłącz auto-sync z RSPO' : 'Włącz auto-sync z RSPO'">
                   <input
                     type="checkbox"
-                    :checked="row.db.autoUpdate ?? false"
-                    :disabled="togglingAutoUpdateIds.has(row.db.numerRspo)"
-                    @change="toggleAutoUpdate(row)"
+                    :checked="diff.school.autoUpdate ?? false"
+                    :disabled="togglingAutoUpdateIds.has(diff.school.numerRspo)"
+                    @change="toggleAutoUpdate(diff)"
                     class="rounded border-gray-300 text-[#051330] focus:ring-[#051330]/30 disabled:opacity-50"
                   />
                 </label>
-                <div v-if="autoUpdateErrorIds.has(row.db.numerRspo)" class="text-[10px] text-red-500 mt-0.5">błąd</div>
+                <div v-if="autoUpdateErrorIds.has(diff.school.numerRspo)" class="text-[10px] text-red-500 mt-0.5">błąd</div>
               </td>
               <td class="px-4 py-3">
                 <div class="flex items-center justify-end gap-2">
-                  <span v-if="updatedIds.has(row.db.numerRspo)" class="text-xs text-emerald-600 font-medium">Zaktualizowano</span>
-                  <span v-else-if="updateErrorIds.has(row.db.numerRspo)" class="text-xs text-red-500">Błąd</span>
+                  <span v-if="updatedIds.has(diff.school.numerRspo)" class="text-xs text-emerald-600 font-medium">Zaktualizowano</span>
+                  <span v-else-if="updateErrorIds.has(diff.school.numerRspo)" class="text-xs text-red-500">Błąd</span>
                   <button
-                    v-if="row.status === 'loaded' && differs(row, selectedField) && !updatedIds.has(row.db.numerRspo)"
-                    @click="updateSingle(row)"
-                    :disabled="updatingIds.has(row.db.numerRspo)"
+                    v-if="!updatedIds.has(diff.school.numerRspo)"
+                    @click="updateSingle(diff)"
+                    :disabled="updatingIds.has(diff.school.numerRspo)"
                     class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium text-white bg-[#051330] hover:bg-[#072244] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                   >
-                    <svg v-if="updatingIds.has(row.db.numerRspo)" class="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+                    <svg v-if="updatingIds.has(diff.school.numerRspo)" class="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
                       <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
                       <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
                     </svg>
@@ -548,27 +502,8 @@ fetchPage();
         </table>
       </div>
 
-      <div
-        v-if="!loading && totalPages > 1"
-        class="flex items-center justify-between px-4 py-3 border-t border-gray-100"
-      >
-        <span class="text-xs text-gray-500">Strona {{ currentPage }} z {{ totalPages }}</span>
-        <div class="flex items-center gap-1">
-          <button
-            @click="goToPage(currentPage - 1)"
-            :disabled="currentPage === 1"
-            class="px-3 py-1.5 text-xs rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            Poprzednia
-          </button>
-          <button
-            @click="goToPage(currentPage + 1)"
-            :disabled="currentPage === totalPages"
-            class="px-3 py-1.5 text-xs rounded border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
-            Następna
-          </button>
-        </div>
+      <div v-if="!loading && totalPages > 1" class="px-4 py-3 border-t border-gray-100">
+        <Pagination :current-page="currentPage" :total-pages="totalPages" @change="goToPage" />
       </div>
     </div>
   </div>
