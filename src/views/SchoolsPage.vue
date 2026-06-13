@@ -38,6 +38,24 @@ const filterMiejscowosc = ref("");
 const showMoreFilters = ref(false);
 const totalPages = ref(0);
 
+const schoolToDelete = ref<SchoolDTO | null>(null);
+const deleting = ref(false);
+const deleteError = ref<string | null>(null);
+
+const selectMode = ref(false);
+const selectedRspoIds = ref<Set<number>>(new Set());
+const showConfirmManyDelete = ref(false);
+const deletingMany = ref(false);
+const deleteManyError = ref<string | null>(null);
+
+const selectedCount = computed(() => selectedRspoIds.value.size);
+const allOnPageSelected = computed(
+  () => schools.value.length > 0 && schools.value.every((s) => selectedRspoIds.value.has(s.numerRspo)),
+);
+const someOnPageSelected = computed(
+  () => schools.value.some((s) => selectedRspoIds.value.has(s.numerRspo)),
+);
+
 const activeExtraFiltersCount = computed(() =>
   [filterTyp, filterStatus, filterKategoria, filterSpecyfika, filterGminaRodzaj, filterPowiat, filterMiejscowosc]
     .filter((f) => f.value).length
@@ -114,6 +132,106 @@ function goToPage(page: number): void {
   if (page < 1 || page > totalPages.value) return;
   currentPage.value = page;
   fetchSchools();
+}
+
+function requestDelete(school: SchoolDTO): void {
+  schoolToDelete.value = school;
+  deleteError.value = null;
+}
+
+function cancelDelete(): void {
+  if (deleting.value) return;
+  schoolToDelete.value = null;
+  deleteError.value = null;
+}
+
+async function confirmDelete(): Promise<void> {
+  if (!schoolToDelete.value) return;
+  const rspoId = schoolToDelete.value.numerRspo;
+  deleting.value = true;
+  deleteError.value = null;
+  try {
+    await api.delete(`/api/Schools/DeleteSchool?rspoId=${rspoId}`);
+    schoolToDelete.value = null;
+    // Last item on page? Step back so we don't show an empty page.
+    if (schools.value.length === 1 && currentPage.value > 1) {
+      currentPage.value -= 1;
+    }
+    await fetchSchools();
+  } catch {
+    deleteError.value = "Nie udało się usunąć placówki. Spróbuj ponownie.";
+  } finally {
+    deleting.value = false;
+  }
+}
+
+function toggleSelectMode(): void {
+  selectMode.value = !selectMode.value;
+  if (!selectMode.value) {
+    selectedRspoIds.value = new Set();
+  }
+}
+
+function isSelected(school: SchoolDTO): boolean {
+  return selectedRspoIds.value.has(school.numerRspo);
+}
+
+function toggleSelection(school: SchoolDTO): void {
+  const next = new Set(selectedRspoIds.value);
+  if (next.has(school.numerRspo)) {
+    next.delete(school.numerRspo);
+  } else {
+    next.add(school.numerRspo);
+  }
+  selectedRspoIds.value = next;
+}
+
+function toggleAllOnPage(): void {
+  const next = new Set(selectedRspoIds.value);
+  if (allOnPageSelected.value) {
+    schools.value.forEach((s) => next.delete(s.numerRspo));
+  } else {
+    schools.value.forEach((s) => next.add(s.numerRspo));
+  }
+  selectedRspoIds.value = next;
+}
+
+function clearSelection(): void {
+  selectedRspoIds.value = new Set();
+}
+
+function requestDeleteMany(): void {
+  if (selectedCount.value === 0) return;
+  showConfirmManyDelete.value = true;
+  deleteManyError.value = null;
+}
+
+function cancelDeleteMany(): void {
+  if (deletingMany.value) return;
+  showConfirmManyDelete.value = false;
+  deleteManyError.value = null;
+}
+
+async function confirmDeleteMany(): Promise<void> {
+  const ids = Array.from(selectedRspoIds.value);
+  if (!ids.length) return;
+  deletingMany.value = true;
+  deleteManyError.value = null;
+  try {
+    await api.delete("/api/Schools/DeleteManySchools", { data: ids });
+    selectedRspoIds.value = new Set();
+    showConfirmManyDelete.value = false;
+    selectMode.value = false;
+    // Likely emptied current page or earlier; step back to avoid landing on a blank page.
+    if (currentPage.value > 1) {
+      currentPage.value = 1;
+    }
+    await fetchSchools();
+  } catch {
+    deleteManyError.value = "Nie udało się usunąć zaznaczonych placówek. Spróbuj ponownie.";
+  } finally {
+    deletingMany.value = false;
+  }
 }
 
 fetchSchools();
@@ -201,6 +319,25 @@ fetchSchools();
                 <option v-for="opt in PAGE_SIZE_OPTIONS" :key="opt" :value="opt">{{ opt }}</option>
               </select>
             </div>
+            <button
+              type="button"
+              @click="toggleSelectMode"
+              :class="[
+                'inline-flex items-center gap-1.5 px-3 py-2 text-sm rounded-md border transition-colors whitespace-nowrap',
+                selectMode
+                  ? 'border-red-500 text-red-700 bg-red-50 hover:bg-red-100'
+                  : 'border-gray-300 text-gray-600 hover:bg-gray-50',
+              ]"
+              :title="selectMode ? 'Wyjdź z trybu usuwania' : 'Zaznacz wiele placówek do usunięcia'"
+            >
+              <svg v-if="selectMode" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+              </svg>
+              <span class="hidden sm:inline">{{ selectMode ? "Zakończ" : "Tryb usuwania" }}</span>
+            </button>
           </div>
 
           <div class="flex flex-wrap items-center gap-3">
@@ -323,6 +460,43 @@ fetchSchools();
           </div>
         </div>
 
+        <!-- Bulk-selection action bar -->
+        <div
+          v-if="selectMode"
+          class="bg-red-50 border border-red-200 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3"
+        >
+          <div class="flex items-center gap-3 text-sm">
+            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-red-100 text-red-700 font-semibold text-xs">
+              {{ selectedCount }}
+            </span>
+            <span class="text-gray-700">
+              <template v-if="selectedCount === 0">Zaznacz placówki do usunięcia</template>
+              <template v-else>zaznaczonych do usunięcia</template>
+            </span>
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              @click="clearSelection"
+              :disabled="selectedCount === 0"
+              class="px-3 py-1.5 text-xs rounded-md border border-gray-300 text-gray-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Wyczyść
+            </button>
+            <button
+              type="button"
+              @click="requestDeleteMany"
+              :disabled="selectedCount === 0"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Usuń zaznaczone
+            </button>
+          </div>
+        </div>
+
         <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <div v-if="error" class="px-4 py-3 bg-red-50 border-b border-red-200 text-red-700 text-sm">
             {{ error }}
@@ -331,12 +505,22 @@ fetchSchools();
           <table class="w-full text-sm">
             <thead>
               <tr class="border-b border-gray-100 bg-gray-50">
+                <th v-if="selectMode" class="px-3 py-3 w-10">
+                  <input
+                    type="checkbox"
+                    :checked="allOnPageSelected"
+                    :indeterminate.prop="!allOnPageSelected && someOnPageSelected"
+                    @change="toggleAllOnPage"
+                    title="Zaznacz wszystkie na tej stronie"
+                    class="rounded border-gray-300 text-red-600 focus:ring-red-500/30"
+                  />
+                </th>
                 <th class="hidden sm:table-cell text-left px-4 py-3 font-medium text-gray-600 w-28">Nr RSPO</th>
                 <th class="text-left px-4 py-3 font-medium text-gray-600">Nazwa</th>
                 <th class="hidden md:table-cell text-left px-4 py-3 font-medium text-gray-600 w-48">Typ</th>
                 <th class="hidden lg:table-cell text-left px-4 py-3 font-medium text-gray-600 w-36">Miejscowość</th>
                 <th class="hidden xl:table-cell text-left px-4 py-3 font-medium text-gray-600 w-36">Województwo</th>
-                <th class="px-4 py-3 w-16"></th>
+                <th v-if="!selectMode" class="px-4 py-3 w-16"></th>
               </tr>
             </thead>
             <tbody>
@@ -360,8 +544,19 @@ fetchSchools();
                 v-else
                 v-for="school in schools"
                 :key="school.id"
-                class="border-b border-gray-50 hover:bg-gray-50 transition-colors"
+                class="border-b border-gray-50 transition-colors"
+                :class="selectMode && isSelected(school) ? 'bg-red-50/60 hover:bg-red-50' : 'hover:bg-gray-50'"
+                @click="selectMode ? toggleSelection(school) : null"
+                :style="selectMode ? 'cursor: pointer' : ''"
               >
+                <td v-if="selectMode" class="px-3 py-3" @click.stop>
+                  <input
+                    type="checkbox"
+                    :checked="isSelected(school)"
+                    @change="toggleSelection(school)"
+                    class="rounded border-gray-300 text-red-600 focus:ring-red-500/30"
+                  />
+                </td>
                 <td class="hidden sm:table-cell px-4 py-3 text-gray-500 font-mono text-xs">{{ school.numerRspo }}</td>
                 <td class="px-4 py-3">
                   <div class="font-medium text-gray-800">{{ school.nazwa }}</div>
@@ -372,16 +567,28 @@ fetchSchools();
                 <td class="hidden md:table-cell px-4 py-3 text-gray-600">{{ school.typ ?? "—" }}</td>
                 <td class="hidden lg:table-cell px-4 py-3 text-gray-600">{{ school.miejscowosc ?? "—" }}</td>
                 <td class="hidden xl:table-cell px-4 py-3 text-gray-600">{{ school.wojewodztwo ?? "—" }}</td>
-                <td class="px-4 py-3 text-right">
-                  <button
-                    @click="router.push(`/placowki/${school.numerRspo}/edytuj`)"
-                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-[#051330] border border-[#051330]/20 hover:bg-[#051330] hover:text-white transition-colors"
-                  >
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    <span class="hidden sm:inline">Edytuj</span>
-                  </button>
+                <td v-if="!selectMode" class="px-4 py-3 text-right">
+                  <div class="inline-flex items-center gap-1.5">
+                    <button
+                      @click="router.push(`/placowki/${school.numerRspo}/edytuj`)"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-[#051330] border border-[#051330]/20 hover:bg-[#051330] hover:text-white transition-colors"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      <span class="hidden sm:inline">Edytuj</span>
+                    </button>
+                    <button
+                      @click="requestDelete(school)"
+                      title="Usuń placówkę"
+                      class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium text-red-600 border border-red-200 hover:bg-red-600 hover:text-white hover:border-red-600 transition-colors"
+                    >
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      <span class="hidden sm:inline">Usuń</span>
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -411,6 +618,119 @@ fetchSchools();
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete confirmation modal -->
+    <div
+      v-if="schoolToDelete"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      @click.self="cancelDelete"
+    >
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full overflow-hidden" role="dialog" aria-modal="true">
+        <div class="flex items-start gap-3 px-5 py-4 border-b border-gray-100">
+          <div class="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+            </svg>
+          </div>
+          <div class="min-w-0 flex-1">
+            <h3 class="font-medium text-gray-800">Usunąć placówkę?</h3>
+            <p class="text-xs text-gray-500 mt-0.5">Tej operacji nie można cofnąć.</p>
+          </div>
+        </div>
+
+        <div class="px-5 py-4 space-y-2">
+          <div class="rounded-md bg-gray-50 border border-gray-200 px-3 py-2.5">
+            <div class="font-medium text-sm text-gray-800 break-words">{{ schoolToDelete.nazwa }}</div>
+            <div class="text-xs text-gray-500 font-mono mt-0.5">Nr RSPO: {{ schoolToDelete.numerRspo }}</div>
+            <div v-if="schoolToDelete.miejscowosc || schoolToDelete.wojewodztwo" class="text-xs text-gray-500 mt-1">
+              {{ [schoolToDelete.miejscowosc, schoolToDelete.wojewodztwo].filter(Boolean).join(", ") }}
+            </div>
+          </div>
+          <div v-if="deleteError" class="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+            {{ deleteError }}
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 px-5 py-3 bg-gray-50 border-t border-gray-100">
+          <button
+            type="button"
+            @click="cancelDelete"
+            :disabled="deleting"
+            class="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Anuluj
+          </button>
+          <button
+            type="button"
+            @click="confirmDelete"
+            :disabled="deleting"
+            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-md font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+          >
+            <svg v-if="deleting" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            {{ deleting ? "Usuwanie..." : "Usuń" }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bulk delete confirmation modal -->
+    <div
+      v-if="showConfirmManyDelete"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+      @click.self="cancelDeleteMany"
+    >
+      <div class="bg-white rounded-lg shadow-xl max-w-md w-full overflow-hidden" role="dialog" aria-modal="true">
+        <div class="flex items-start gap-3 px-5 py-4 border-b border-gray-100">
+          <div class="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+            <svg class="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4a2 2 0 00-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" />
+            </svg>
+          </div>
+          <div class="min-w-0 flex-1">
+            <h3 class="font-medium text-gray-800">
+              Usunąć {{ selectedCount }} {{ selectedCount === 1 ? "placówkę" : "placówek" }}?
+            </h3>
+            <p class="text-xs text-gray-500 mt-0.5">Tej operacji nie można cofnąć.</p>
+          </div>
+        </div>
+
+        <div class="px-5 py-4 space-y-2">
+          <div class="rounded-md bg-gray-50 border border-gray-200 px-3 py-2.5 text-sm text-gray-700">
+            Zostanie usuniętych <strong>{{ selectedCount }}</strong>
+            {{ selectedCount === 1 ? "placówka" : "placówek" }} z lokalnej bazy danych.
+          </div>
+          <div v-if="deleteManyError" class="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">
+            {{ deleteManyError }}
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 px-5 py-3 bg-gray-50 border-t border-gray-100">
+          <button
+            type="button"
+            @click="cancelDeleteMany"
+            :disabled="deletingMany"
+            class="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Anuluj
+          </button>
+          <button
+            type="button"
+            @click="confirmDeleteMany"
+            :disabled="deletingMany"
+            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-md font-medium text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+          >
+            <svg v-if="deletingMany" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            {{ deletingMany ? "Usuwanie..." : `Usuń ${selectedCount}` }}
+          </button>
         </div>
       </div>
     </div>
