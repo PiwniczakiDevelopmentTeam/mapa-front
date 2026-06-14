@@ -314,11 +314,11 @@ function createTabs(schoolObj) {
 function translateDetailsNaming(schoolData) {
     return {
         addressInfo: {
-            "Nazwa szkoĹ‚y": schoolData["nazwa"],
-            "MiejscowoĹ›Ä‡": schoolData["miejscowosc"],
+            "Nazwa szkoły": schoolData["nazwa"],
+            "Miejscowość": schoolData["miejscowosc"],
             "Kod pocztowy": schoolData["kodPocztowy"],
             Poczta: schoolData["poczta"],
-            "WojewĂłdztwo": schoolData["wojewodztwo"],
+            "Województwo": schoolData["wojewodztwo"],
             Powiat: schoolData["powiat"],
             Gmina: schoolData["gmina"],
             Ulica: schoolData["ulica"],
@@ -329,39 +329,39 @@ function translateDetailsNaming(schoolData) {
             Faks: schoolData["faks"],
             "Adres e-mail": schoolData["email"],
             "Strona WWW": schoolData["stronaInternetowa"],
-            "Typ szkoĹy": schoolData["typ"],
+            "Typ szkoły": schoolData["typ"],
             Przeznaczenie: schoolData["kategoriaUczniow"],
-            "Status publicznoĹci": schoolData["statusPublicznosc"],
-            "Liczba uczniĂłw": schoolData["liczbaUczniow"],
-            "Nauczane jÄzyki": schoolData["jezykiNauczane"],
+            "Status publiczności": schoolData["statusPublicznosc"],
+            "Liczba uczniów": schoolData["liczbaUczniow"],
+            "Nauczane języki": schoolData["jezykiNauczane"],
             "Tereny sportowe": schoolData["terenySportowe"],
         },
         detailedInfo: {
             "Struktura miejsca": schoolData["strukturaMiejsce"],
-            "Rodzaj miejscowoĹci": schoolData["rodzajMiejscowosci"],
-            "Specyfika placĂłwki": schoolData["specyfikaPlacowki"],
+            "Rodzaj miejscowości": schoolData["rodzajMiejscowosci"],
+            "Specyfika placówki": schoolData["specyfikaPlacowki"],
             "Numer RSPO": schoolData["rspoNumer"],
             Regon: schoolData["regonPodmiotu"],
             "NIP podmiotu": schoolData["nipPodmiotu"],
             "Miejsce w strukturze": schoolData["strukturaMiejsce"],
-            "Data zaĹoĹźenia": schoolData["dataRozpoczeciaDzialalnosci"],
+            "Data założenia": schoolData["dataRozpoczeciaDzialalnosci"],
             "Data likwidacji": schoolData["dataLikwidacji"],
-            "Kod terytorialny (MiejscowoĹÄ)":
+            "Kod terytorialny (Miejscowość)":
                 schoolData["kodTerytorialnyMiejscowosc"],
             "Kod terytorialny (Gmina)": schoolData["kodTerytorialnyGmina"],
             "Kod terytorialny (Powiat)": schoolData["kodTerytorialnyPowiat"],
-            "Kod terytorialny (WojewĂłdztwo)":
+            "Kod terytorialny (Województwo)":
                 schoolData["kodTerytorialnyWojewodztwo"],
-            "Podmiot nadrzÄdny (Nazwa)": schoolData["podmiotNadrzednyNazwa"],
-            "Podmiot nadrzÄdny (Typ)": schoolData["podmiotNadrzednyTyp"],
-            "Podmiot nadrzÄdny (RSPO)": schoolData["podmiotNadrzednyRspo"],
-            "Organ prowadzÄcy (Nazwa)": schoolData["organProwadzacyNazwa"],
-            "Organ prowadzÄcy (NIP)": schoolData["organProwadzacyNip"],
-            "Organ prowadzÄcy (Regon)": schoolData["organProwadzacyRegon"],
-            "Organ prowadzÄcy (Typ)": schoolData["organProwadzacyTyp"],
-            "Organ prowadzÄcy (Gmina)": schoolData["organProwadzacyGmina"],
-            "Organ prowadzÄcy (Powiat)": schoolData["organProwadzacyPowiat"],
-            "Organ prowadzÄcy (WojewĂłdztwo)":
+            "Podmiot nadrzędny (Nazwa)": schoolData["podmiotNadrzednyNazwa"],
+            "Podmiot nadrzędny (Typ)": schoolData["podmiotNadrzednyTyp"],
+            "Podmiot nadrzędny (RSPO)": schoolData["podmiotNadrzednyRspo"],
+            "Organ prowadzący (Nazwa)": schoolData["organProwadzacyNazwa"],
+            "Organ prowadzący (NIP)": schoolData["organProwadzacyNip"],
+            "Organ prowadzący (Regon)": schoolData["organProwadzacyRegon"],
+            "Organ prowadzący (Typ)": schoolData["organProwadzacyTyp"],
+            "Organ prowadzący (Gmina)": schoolData["organProwadzacyGmina"],
+            "Organ prowadzący (Powiat)": schoolData["organProwadzacyPowiat"],
+            "Organ prowadzący (Województwo)":
                 schoolData["organProwadzacyWojewodztwo"],
         },
     };
