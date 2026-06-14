@@ -7,7 +7,7 @@ headers.append("GET", "POST", "OPTIONS");
 
 const API_BASE_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1" || window.location.protocol === "file:"
     ? "http://localhost:5157/api"
-    : "https://api.mh.mapa.tomekb530.me/api";
+    : "https://api.dev.mapa.tomekb530.me/api";
 
 const header = document.querySelector(".header");
 const hamburger = document.querySelector(".hamburger");
