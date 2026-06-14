@@ -24,7 +24,11 @@ async function startSync(): Promise<void> {
   error.value = null;
   success.value = false;
   try {
-    await api.put("/api/Schools/SyncRspoToActual");
+    // Auto-sync iterates the whole RSPO mirror in 100-row batches on the backend;
+    // the default 10s axios timeout (set in services/api.ts) is too short, so the
+    // first call always falsely reports failure even when the backend completes.
+    // Use a generous timeout for this specific endpoint.
+    await api.put("/api/Schools/SyncRspoToActual", null, { timeout: 600000 });
     success.value = true;
     showConfirm.value = false;
   } catch {
@@ -106,6 +110,10 @@ async function startSync(): Promise<void> {
           <p>
             Wszystkie placówki z <strong>auto-sync = włączone</strong> zostaną nadpisane wartościami
             z lokalnej kopii RSPO. Placówki z wyłączonym auto-sync zostaną pominięte.
+          </p>
+          <p class="text-xs text-gray-500">
+            Operacja może potrwać kilka minut — backend przechodzi przez wszystkie placówki partiami.
+            Nie zamykaj karty do zakończenia.
           </p>
           <p class="text-xs text-gray-500">Tej operacji nie można cofnąć bezpośrednio — można jedynie ręcznie skorygować dane po fakcie.</p>
         </div>
