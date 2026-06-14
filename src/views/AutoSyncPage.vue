@@ -32,7 +32,7 @@ async function startSync(): Promise<void> {
     await api.put("/api/Schools/SyncRspoToActual", null, { timeout: 600000 });
     success.value = true;
   } catch {
-    error.value = "Nie udało się ukończyć auto-synchronizacji. Backend mógł nie zdążyć odpowiedzieć w wyznaczonym czasie — sprawdź różnice w zakładce „Różnice z RSPO".";
+    error.value = "Nie udało się ukończyć auto-synchronizacji. Backend mógł nie zdążyć odpowiedzieć w wyznaczonym czasie — sprawdź różnice w zakładce „Różnice z RSPO”.";
   } finally {
     syncing.value = false;
   }
