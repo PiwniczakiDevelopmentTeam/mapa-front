@@ -61,9 +61,9 @@ onMounted(() => {
 function openEditModal(user: User) {
   selectedUser.value = user;
   editForm.value = {
-    email: user.email,
-    firstName: user.firstName,
-    lastName: user.lastName,
+    email: user.email || "",
+    firstName: user.firstName || "",
+    lastName: user.lastName || "",
     idRole: user.idRole,
     password: ""
   };
@@ -87,9 +87,9 @@ function openDeleteModal(user: User) {
 
 const isFormValid = computed(() => {
   return (
-    editForm.value.email.trim() !== "" &&
-    editForm.value.firstName.trim() !== "" &&
-    editForm.value.lastName.trim() !== "" &&
+    (editForm.value.email || "").trim() !== "" &&
+    (editForm.value.firstName || "").trim() !== "" &&
+    (editForm.value.lastName || "").trim() !== "" &&
     !formErrors.value.email &&
     !formErrors.value.firstName &&
     !formErrors.value.lastName &&
@@ -115,12 +115,12 @@ function validateForm() {
     valid = false;
   }
 
-  if (!editForm.value.firstName.trim()) {
+  if (!(editForm.value.firstName || "").trim()) {
     formErrors.value.firstName = "Imię jest wymagane";
     valid = false;
   }
 
-  if (!editForm.value.lastName.trim()) {
+  if (!(editForm.value.lastName || "").trim()) {
     formErrors.value.lastName = "Nazwisko jest wymagane";
     valid = false;
   }
