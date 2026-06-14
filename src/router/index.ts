@@ -8,6 +8,7 @@ import AuditPage from "@/views/AuditPage.vue";
 import ErrorsPage from "@/views/ErrorsPage.vue";
 import UsersPage from "@/views/UsersPage.vue";
 import SchoolEditPage from "@/views/SchoolEditPage.vue";
+import MapPage from "@/views/MapPage.vue";
 
 const routes = [
   {
@@ -18,7 +19,13 @@ const routes = [
   },
   {
     path: "/",
-    name: "Home",
+    name: "Map",
+    component: MapPage,
+    meta: { requiresAuth: false },
+  },
+  {
+    path: "/dashboard",
+    name: "Dashboard",
     component: HomePage,
     meta: { requiresAuth: true },
   },
@@ -92,9 +99,9 @@ router.beforeEach(async (to, _from, next) => {
   if (requiresAuth && !userStore.isAuthenticated) {
     next({ name: "Login", query: { redirect: to.fullPath } });
   } else if (to.name === "Login" && userStore.isAuthenticated) {
-    next({ name: "Home" });
+    next({ name: "Dashboard" });
   } else if (to.name === "Users" && !userStore.isAdmin) {
-    next({ name: "Home" });
+    next({ name: "Dashboard" });
   } else {
     next();
   }

@@ -81,7 +81,7 @@ async function handleLogin() {
 
   if (result.success) {
     const redirect =
-      (router.currentRoute.value.query.redirect as string) || "/";
+      (router.currentRoute.value.query.redirect as string) || "/dashboard";
     router.push(redirect);
   }
 }

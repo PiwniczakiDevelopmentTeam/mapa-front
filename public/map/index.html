@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="pl-PL">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      integrity="sha512-9usAa10IRO0HhonpyAIVpjrylPvoDwiPUiKdWk5t3PyolY1cOd4DSE0Ga+ri4AuTroPR5aQvXU9xC6qOPnzFeg=="
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.5.1/leaflet.css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.5.1/leaflet.js"></script>
+    <!-- Cluster -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.1/dist/MarkerCluster.css"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet.markercluster@1.5.1/dist/MarkerCluster.Default.css"
+    />
+    <script
+      type="text/javascript"
+      src="https://unpkg.com/leaflet.markercluster@1.5.1/dist/leaflet.markercluster.js"
+    ></script>
+
+    <link rel="icon" href="school.png" type="image/png" />
+    <title>Mapa Szkół Niepublicznych</title>
+
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/variables.css" />
+    <link rel="stylesheet" href="css/sidebar.css" />
+    <link rel="stylesheet" href="css/header.css" />
+    <link rel="stylesheet" href="css/leaflet-styles.css" />
+    <link rel="stylesheet" href="css/dropdown-arrow.css" />
+    <link rel="stylesheet" href="css/search-dropdown.css" />
+    <link rel="stylesheet" href="css/hamburger-button.css" />
+    <link rel="stylesheet" href="css/controls.css" />
+    <link rel="stylesheet" href="css/modal.css" />
+  </head>
+
+  <body>
+    <!-- <button class="show-modal">Show modal 1</button> -->
+    <div class="wrapper">
+      <header class="header">
+        <div class="hamburger">
+          <div class="hamburger__bar hamburger__bar-1"></div>
+          <div class="hamburger__bar hamburger__bar-2"></div>
+          <div class="hamburger__bar hamburger__bar-3"></div>
+        </div>
+
+        <input
+          class="header__search"
+          placeholder="Wyszukaj..."
+          type="search"
+          name="school-name"
+          id="school-name"
+        />
+
+        <div class="header__arrow arrow arrow--down dropdown-button"></div>
+
+        <div class="dropdown-content dropdown--invisible">
+          <p class="dropdown-content__title">Filtry</p>
+
+          <div class="voivodeship__container">
+            <label for="voivodeship">Województwo:</label>
+
+            <select
+              class="voivodeship__select"
+              class=""
+              name="select-voivodeship"
+              id="select-voivodeship"
+            >
+              <option class="voivodeship__option" value="all-schools">
+                Cała polska
+              </option>
+              <option class="voivodeship__option" value="dolnośląskie">
+                Dolnośląskie
+              </option>
+              <option class="voivodeship__option" value="kujawsko-pomorskie">
+                Kujawsko-pomorskie
+              </option>
+              <option class="voivodeship__option" value="lubelskie">
+                Lubelskie
+              </option>
+              <option class="voivodeship__option" value="lubuskie">
+                Lubuskie
+              </option>
+              <option class="voivodeship__option" value="łódzkie">
+                Łódzkie
+              </option>
+              <option class="voivodeship__option" value="małopolskie">
+                Małopolskie
+              </option>
+              <option class="voivodeship__option" value="mazowieckie">
+                Mazowieckie
+              </option>
+              <option class="voivodeship__option" value="opolskie">
+                Opolskie
+              </option>
+              <option class="voivodeship__option" value="podkarpackie">
+                Podkarpackie
+              </option>
+              <option class="voivodeship__option" value="podlaskie">
+                Podlaskie
+              </option>
+              <option class="voivodeship__option" value="pomorskie">
+                Pomorskie
+              </option>
+              <option class="voivodeship__option" value="śląskie">
+                Śląskie
+              </option>
+              <option class="voivodeship__option" value="świętokrzyskie">
+                Świętokrzyskie
+              </option>
+              <option class="voivodeship__option" value="warmińsko-mazurskie">
+                Warmińsko-mazurskie
+              </option>
+              <option class="voivodeship__option" value="wielkopolskie">
+                Wielkopolskie
+              </option>
+              <option class="voivodeship__option" value="zachodniopomorskie">
+                Zachodniopomorskie
+              </option>
+            </select>
+          </div>
+
+          <div class="school-type__container">
+            <label class="school-type__item">
+              <input
+                type="checkbox"
+                class="school-type__checkbox"
+                id="school-type-checkbox"
+                name="school-type-checkbox"
+                value="szkoła podstawowa"
+                checked
+              />
+              <p>Podstawowa</p>
+            </label>
+
+            <label class="school-type__item">
+              <input
+                type="checkbox"
+                class="school-type__checkbox"
+                id="school-type-checkbox"
+                name="school-type-checkbox"
+                value="liceum ogólnokształcące"
+                checked
+              />
+              <p>Liceum</p>
+            </label>
+
+            <label class="school-type__item">
+              <input
+                type="checkbox"
+                class="school-type__checkbox"
+                id="school-type-checkbox"
+                name="school-type-checkbox"
+                value="technikum"
+                checked
+              />
+              <p>Technikum</p>
+            </label>
+          </div>
+        </div>
+      </header>
+
+      <aside class="sidebar sidebar--hide">
+        <div class="sidebar__header">
+          <h1 class="sidebar__title">Dodatkowe informacje</h1>
+        </div>
+
+        <div class="sidebar__tabs-container">
+          <input
+            class="sidebar__radio"
+            id="tab1"
+            type="radio"
+            name="tabs"
+            checked
+          />
+          <label class="sidebar__tab" for="tab1">Dane ogólne</label>
+          <input class="sidebar__radio" id="tab2" type="radio" name="tabs" />
+          <label class="sidebar__tab" for="tab2">Dane szczegółowe</label>
+        </div>
+
+        <div class="sidebar__content-container">
+          <section class="sidebar__content" id="content-1">
+            <div class="sidebar__address-info"></div>
+          </section>
+
+          <section class="sidebar__content" id="content-2">
+            <div class="sidebar__detailed-info"></div>
+          </section>
+        </div>
+      </aside>
+
+      <main class="map-container">
+        <div class="map" id="map"></div>
+      </main>
+
+      <div class="loader-container">
+        <span class="loader"></span>
+      </div>
+
+      <div class="reset-button">
+        <i class="fa-solid fa-rotate-right"></i>
+      </div>
+
+      <div class="info-button show-modal">
+        <i class="fa-solid fa-question"></i>
+      </div>
+    </div>
+
+    <div class="modal hidden">
+
+      <div class="modal__title">
+        <h2>Autorzy projektu</h1>
+        <button class="modal__close"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal__content">
+        <h3 class="modal__authors-title">Absolwenci <br class="split"><a class="modal__link" target="blank" href="http://www.akademiabialska.pl/">Akademii  Bialskiej Nauk Stosowanych im. Jana Pawła II</a></h3>
+          <div class="authors-container">
+            <div class="author">
+              <h3 class="author__name">Sebastian Kładź</h3>
+              <div class="author__img" style="background-image: url(assets/sebastian.jpg)" alt="">  </div>
+              <p class="author__role">Aplikacja internetowa</p>
+            </div>
+    
+            <div class="author">
+              <h3 class="author__name">Grzegorz Wojtiuk</h3>
+              <div class="author__img" style="background-image: url(assets/grzegorz.jpg)" alt="">  </div>
+              <p class="author__role">Konfiguracja, testowanie, wsparcie backendu</p>
+            </div>
+    
+            <div class="author">
+              <h3 class="author__name">Karol Gruszewski</h3>
+              <div class="author__img" style="background-image: url(assets/karol.jpg)" alt="">  </div>
+              <p class="author__role">Dokumentacja, frontend aplikacji mobilnej</p>
+            </div>
+    
+            <div class="author">
+              <h3 class="author__name">Hubert Mazur</h3>
+              <div class="author__img" style="background-image: url(assets/hubert.jpg)" alt="">  </div>
+              <p class="author__role">Testowanie, frontend aplikacji mobilnej</p>
+            </div>
+
+            <div class="author">
+              <h3 class="author__name">Jakub Czekiel</h3>
+              <div class="author__img" style="background-image: url(assets/jakub.jpg)" alt="">  </div>
+              <p class="author__role">Backend, usługa sieciowa</p>
+            </div>
+
+            <div class="author">
+              <h3 class="author__name">Łukasz Cydejko</h3>
+              <div class="author__img" style="background-image: url(assets/lukasz.jpg)" alt="">  </div>
+              <p class="author__role">Backend aplikacji mobilnej</p>
+            </div>
+          </div>
+      </div>
+      
+    </div>
+    <div class="overlay hidden"></div>
+    <script src="script.js"></script>
+  </body>
+</html>
