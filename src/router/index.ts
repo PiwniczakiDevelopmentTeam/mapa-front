@@ -77,4 +77,27 @@ const router = createRouter({
   routes,
 });
 
+import { useUserStore } from "@/stores/userStore";
+
+router.beforeEach(async (to, _from, next) => {
+  const userStore = useUserStore();
+
+  // Load user profile if auth key is present but user profile is empty
+  if (userStore.authKey && !userStore.user) {
+    await userStore.fetchCurrentUser();
+  }
+
+  const requiresAuth = to.matched.some((record) => record.meta.requiresAuth !== false);
+
+  if (requiresAuth && !userStore.isAuthenticated) {
+    next({ name: "Login", query: { redirect: to.fullPath } });
+  } else if (to.name === "Login" && userStore.isAuthenticated) {
+    next({ name: "Home" });
+  } else if (to.name === "Users" && !userStore.isAdmin) {
+    next({ name: "Home" });
+  } else {
+    next();
+  }
+});
+
 export default router;
