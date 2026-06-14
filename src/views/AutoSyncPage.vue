@@ -20,19 +20,19 @@ function cancelSync(): void {
 }
 
 async function startSync(): Promise<void> {
+  // Close the modal immediately so the user sees the in-progress state on the page.
+  showConfirm.value = false;
   syncing.value = true;
   error.value = null;
   success.value = false;
   try {
-    // Auto-sync iterates the whole RSPO mirror in 100-row batches on the backend;
-    // the default 10s axios timeout (set in services/api.ts) is too short, so the
-    // first call always falsely reports failure even when the backend completes.
-    // Use a generous timeout for this specific endpoint.
+    // Auto-sync iterates the entire RSPO mirror on the backend (synchronous request),
+    // so the default 10s axios timeout from services/api.ts is far too short.
+    // Bump it to 10 minutes for this specific call.
     await api.put("/api/Schools/SyncRspoToActual", null, { timeout: 600000 });
     success.value = true;
-    showConfirm.value = false;
   } catch {
-    error.value = "Nie udało się uruchomić auto-synchronizacji.";
+    error.value = "Nie udało się ukończyć auto-synchronizacji. Backend mógł nie zdążyć odpowiedzieć w wyznaczonym czasie — sprawdź różnice w zakładce „Różnice z RSPO".";
   } finally {
     syncing.value = false;
   }
@@ -56,10 +56,33 @@ async function startSync(): Promise<void> {
           zostają zachowane.
         </p>
 
+        <!-- In-progress card -->
+        <div
+          v-if="syncing"
+          class="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-md"
+        >
+          <div class="flex items-start gap-3">
+            <svg class="animate-spin w-5 h-5 text-amber-700 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-amber-900 text-sm">Synchronizacja w toku…</p>
+              <p class="text-xs text-amber-800/80 mt-1">
+                Backend przechodzi przez wszystkie placówki partiami. Operacja może potrwać
+                <strong>kilka minut</strong> dla większej bazy. Nie zamykaj karty — informacja
+                o zakończeniu pojawi się tutaj.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Error -->
         <div v-if="error" class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-md text-sm">
           {{ error }}
         </div>
 
+        <!-- Success -->
         <div v-if="success" class="mb-4 p-3 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-md text-sm flex items-center gap-2">
           <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -82,7 +105,7 @@ async function startSync(): Promise<void> {
           <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          {{ syncing ? "Synchronizowanie..." : "Uruchom auto-sync" }}
+          {{ syncing ? "Synchronizowanie…" : "Uruchom auto-sync" }}
         </button>
       </div>
     </div>
@@ -112,8 +135,8 @@ async function startSync(): Promise<void> {
             z lokalnej kopii RSPO. Placówki z wyłączonym auto-sync zostaną pominięte.
           </p>
           <p class="text-xs text-gray-500">
-            Operacja może potrwać kilka minut — backend przechodzi przez wszystkie placówki partiami.
-            Nie zamykaj karty do zakończenia.
+            Operacja może potrwać kilka minut — backend nie zwraca odpowiedzi, dopóki nie skończy.
+            Po kliknięciu „Uruchom" zobaczysz status na stronie. Nie zamykaj karty do zakończenia.
           </p>
           <p class="text-xs text-gray-500">Tej operacji nie można cofnąć bezpośrednio — można jedynie ręcznie skorygować dane po fakcie.</p>
         </div>
@@ -122,22 +145,19 @@ async function startSync(): Promise<void> {
           <button
             type="button"
             @click="cancelSync"
-            :disabled="syncing"
-            class="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            class="px-4 py-2 text-sm rounded-md border border-gray-300 text-gray-700 hover:bg-gray-100 transition-colors"
           >
             Anuluj
           </button>
           <button
             type="button"
             @click="startSync"
-            :disabled="syncing"
-            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-md font-medium text-white bg-[#051330] hover:bg-[#072244] disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm rounded-md font-medium text-white bg-[#051330] hover:bg-[#072244] transition-colors"
           >
-            <svg v-if="syncing" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
-              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
             </svg>
-            {{ syncing ? "Synchronizowanie..." : "Uruchom" }}
+            Uruchom
           </button>
         </div>
       </div>
