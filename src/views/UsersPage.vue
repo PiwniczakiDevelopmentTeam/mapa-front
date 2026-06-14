@@ -45,7 +45,8 @@ async function fetchUsers() {
   errorMsg.value = null;
   try {
     const response = await api.get("/api/user");
-    users.value = response.data;
+    const rawData = response.data;
+    users.value = Array.isArray(rawData) ? rawData : (rawData as any).$values ?? [];
   } catch (err: any) {
     errorMsg.value = err.response?.data?.message || "Nie udało się pobrać listy użytkowników.";
   } finally {
@@ -227,10 +228,12 @@ async function handleDeleteUser() {
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="flex items-center gap-3">
                   <div class="w-10 h-10 rounded-full bg-gradient-to-br from-[#051330] to-[#0a2c66] flex items-center justify-center text-white font-medium shadow-sm transition-transform group-hover:scale-105">
-                    {{ user.firstName[0]?.toUpperCase() }}{{ user.lastName[0]?.toUpperCase() }}
+                    {{ user.firstName ? user.firstName.charAt(0).toUpperCase() : '' }}{{ user.lastName ? user.lastName.charAt(0).toUpperCase() : '' }}
                   </div>
                   <div>
-                    <div class="font-medium text-gray-900">{{ user.firstName }} {{ user.lastName }}</div>
+                    <div class="font-medium text-gray-900">
+                      {{ (user.firstName || user.lastName) ? `${user.firstName || ''} ${user.lastName || ''}`.trim() : 'Użytkownik' }}
+                    </div>
                     <div v-if="user.id === userStore.user?.id" class="text-xs text-blue-600 font-semibold mt-0.5">To Ty</div>
                   </div>
                 </div>
