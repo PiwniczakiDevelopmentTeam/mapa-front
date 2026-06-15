@@ -180,7 +180,7 @@ async function handleSaveUser() {
         await userStore.fetchCurrentUser();
       }
     } else {
-      await api.post("/api/user/Register", {
+      await api.post("/api/user/adduser", {
         email: editForm.value.email,
         firstName: editForm.value.firstName,
         lastName: editForm.value.lastName,
