@@ -166,7 +166,11 @@ async function fetchAll(): Promise<void> {
   rawRows.value = [];
 
   try {
-    const res = await api.get("/api/Schools/GetChanges?size=999999&page=1");
+    // GetChanges loads both whole tables and runs a full Except on the backend; on a
+    // real RSPO database this exceeds the 10s default axios timeout. Bump to 5 minutes.
+    const res = await api.get("/api/Schools/GetChanges?size=999999&page=1", {
+      timeout: 300000,
+    });
     const body = res.data as { changedSchools?: unknown } | undefined;
     const rawChanges = unwrapValues<{
       schoolBeforeChanges?: Record<string, unknown>;

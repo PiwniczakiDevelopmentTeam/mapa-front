@@ -123,8 +123,13 @@ async function fetchAll(): Promise<void> {
   updateAllError.value = null;
   try {
     // GetChanges has a paging bug — returns the full list regardless of size/page.
-    // For our use case (need global counts), this is exactly what we want.
-    const res = await api.get("/api/Schools/GetChanges?size=999999&page=1");
+    // For our use case (need global counts), this is exactly what we want. But the
+    // backend loads both whole tables into memory and runs a full Except, so on a real
+    // RSPO database (~50k rows) it easily exceeds the 10s default axios timeout from
+    // services/api.ts. Bump it to 5 minutes for this specific call.
+    const res = await api.get("/api/Schools/GetChanges?size=999999&page=1", {
+      timeout: 300000,
+    });
     const body = res.data as { changedSchools?: unknown } | undefined;
     const rawChanges = unwrapValues<{
       schoolBeforeChanges?: Record<string, unknown>;
