@@ -31,20 +31,18 @@ const selectTab1 = document.querySelector("#tab1");
 const selectTab2 = document.querySelector("#tab2");
 const checkboxes = document.querySelectorAll("#school-type-checkbox");
 const loader = document.querySelector(".loader-container");
+const resetBtn = document.querySelector(".reset-button");
+
+const modal = document.querySelector(".modal");
+const overlay = document.querySelector(".overlay");
+const btnCloseModal = document.querySelector(".modal__close");
+const btnOpenModal = document.querySelector(".show-modal");
 
 let schools = [];
 let markers = L.markerClusterGroup();
 
 //map center point
-let mapZoom = 5;
-
-//set map zoom
-window.innerWidth > 800 ? (mapZoom = 6) : (mapZoom = 5);
-if (window.innerWidth > 800) {
-    mapZoom = 6;
-} else if (window.innerWidth > 1200) {
-    mapZoom = 6;
-}
+let mapZoom = setZoom();
 
 const map = L.map("map").setView([51.9194, 19.1451], mapZoom);
 
@@ -64,6 +62,10 @@ L.tileLayer(
 document.onload = fetchAllSchools();
 
 //EVENT LSITENERS
+// Reset button
+resetBtn.addEventListener("click", () => {
+    refreshZoom();
+});
 
 //filter on school type checkbox change
 checkboxes.forEach((checkbox) =>
@@ -71,10 +73,14 @@ checkboxes.forEach((checkbox) =>
 );
 
 //filter on voivodeship change
-voivodeship.addEventListener("change", filterSchools);
+voivodeship.addEventListener("change", () => {
+    refreshZoom();
+    filterSchools();
+});
 
 //filter on input change with timeout to prevent lagging
 nameInput.addEventListener("input", function () {
+    refreshZoom();
     nameInput.value.length < 2
         ? setTimeout(filterSchools, 700)
         : setTimeout(filterSchools, 100);
@@ -131,6 +137,39 @@ hamburger.addEventListener("click", () => {
 });
 
 //HANDLERS
+
+function setZoom() {
+    let mapZoom = 5;
+    //set map zoom
+    if (window.innerWidth > 800) {
+        mapZoom = 6;
+    }
+    if ((window.innerWidth > 1200) && (window.innerHeight > 1020)) {
+        mapZoom = 7;
+    }
+    return mapZoom;
+}
+
+function refreshZoom() {
+    mapZoom = setZoom();
+    map.setView([51.9194, 19.1451], mapZoom);
+}
+
+// modal controls
+const openModal = function () {
+    console.log("Button clicker");
+    modal.classList.remove("hidden");
+    overlay.classList.remove("hidden");
+};
+
+const closeModal = function () {
+    modal.classList.add("hidden");
+    overlay.classList.add("hidden");
+};
+
+btnOpenModal.addEventListener("click", openModal);
+btnCloseModal.addEventListener("click", closeModal);
+overlay.addEventListener("click", closeModal);
 
 //clear content tabs
 function deleteChildNodes(container) {
